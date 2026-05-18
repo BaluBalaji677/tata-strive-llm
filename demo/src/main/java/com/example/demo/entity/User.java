@@ -31,9 +31,4 @@ public class User {
     private String email;
 
     private String profileImageUrl;
-
-    public enum Role {
-        ADMIN,
-        STUDENT
-    }
 }

@@ -2,8 +2,13 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getCourseById } from "../services/courseService";
 import { getCompletedLessons, getCourseProgress } from "../services/progressService";
+import { getStudentSubmissions, getModuleLockStatus } from "../api/moduleTaskApi";
+import { getProfile as getStudentProfile } from "../services/profileService";
 import CourseSidebar from "../components/CourseSidebar";
 import LessonViewerPage from "./LessonViewerPage";
+import ModuleTaskViewer from "../components/course/ModuleTaskViewer";
+import FinalCourseResult from "../components/course/FinalCourseResult";
+import { SidebarSkeleton, ContentSkeleton } from "../components/common/Skeletons";
 
 const CourseDetailPage = () => {
   const { id } = useParams();
@@ -11,20 +16,80 @@ const CourseDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedLesson, setSelectedLesson] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
   
   const [completedLessons, setCompletedLessons] = useState([]);
+  const [taskSubmissions, setTaskSubmissions] = useState([]);
   const [progressData, setProgressData] = useState({ percentage: 0, completedLessons: 0, totalLessons: 0 });
+  const [isAuthenticatedStudent, setIsAuthenticatedStudent] = useState(false);
+  const [moduleStatuses, setModuleStatuses] = useState({});
+  const [showFinalResult, setShowFinalResult] = useState(false);
+  const [courseCompletion, setCourseCompletion] = useState(null);
+
+  const statusesCacheRef = React.useRef({ id: null, length: -1, auth: null, statuses: null });
+
+  const fetchModuleStatuses = async (forceRefetch = false) => {
+    if (!course?.modules || !isAuthenticatedStudent) {
+      if (course?.modules && !isAuthenticatedStudent) {
+        const statuses = {};
+        course.modules.forEach(m => statuses[m.id] = true);
+        setModuleStatuses(statuses);
+      }
+      return;
+    }
+
+    if (!forceRefetch) {
+      const cache = statusesCacheRef.current;
+      if (cache.id === course?.id && cache.length === taskSubmissions.length && cache.auth === isAuthenticatedStudent) {
+        if (cache.statuses) setModuleStatuses(cache.statuses);
+        return;
+      }
+    }
+
+    try {
+      const results = await Promise.all(
+        course.modules.map(m =>
+          getModuleLockStatus(m.id)
+            .then(res => ({ id: m.id, completed: res.completed }))
+            .catch(() => ({ id: m.id, completed: true }))
+        )
+      );
+      const statuses = {};
+      results.forEach(r => statuses[r.id] = r.completed);
+      setModuleStatuses(statuses);
+      statusesCacheRef.current = { id: course.id, length: taskSubmissions.length, auth: isAuthenticatedStudent, statuses };
+    } catch (err) {
+      console.error("Error fetching module statuses", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchModuleStatuses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course?.id, taskSubmissions.length, isAuthenticatedStudent]);
 
   useEffect(() => {
     const fetchCourseAndProgress = async () => {
       setLoading(true);
       try {
-        const [courseData, completedData, progressStats] = await Promise.all([
+        const [courseData, completedData, progressStats, profile] = await Promise.all([
           getCourseById(id),
           getCompletedLessons(id).catch(() => []),
-          getCourseProgress(id).catch(() => ({ percentage: 0, completedLessons: 0, totalLessons: 0 }))
+          getCourseProgress(id).catch(() => ({ percentage: 0, completedLessons: 0, totalLessons: 0 })),
+          getStudentProfile().catch(() => null)
         ]);
         
+        if (profile) {
+          console.log("Resolved Student Profile:", profile);
+          if (profile.id) {
+            setIsAuthenticatedStudent(true);
+            const submissions = await getStudentSubmissions(profile.id).catch(() => []);
+            setTaskSubmissions(submissions);
+          } else {
+            console.warn("Student ID is missing in profile, skipping getStudentSubmissions");
+          }
+        }
+
         setCourse(courseData);
         setCompletedLessons(completedData);
         setProgressData(progressStats);
@@ -67,7 +132,42 @@ const CourseDetailPage = () => {
     
     // Auto-navigate to next lesson
     if (nextLesson) {
-      setSelectedLesson(nextLesson);
+      handleLessonSelect(nextLesson);
+    }
+  };
+
+  const handleLessonSelect = (lesson) => {
+    setShowFinalResult(false);
+    setSelectedTask(null);
+    setSelectedLesson(lesson);
+  };
+
+  const handleTaskSelect = (task) => {
+    setShowFinalResult(false);
+    setSelectedLesson(null);
+    setSelectedTask(task);
+  };
+
+  const handleTaskSubmissionSuccess = async () => {
+    try {
+      // Refresh module lock statuses after task pass
+      await fetchModuleStatuses(true);
+
+      // Refresh course progress
+      await fetchProgressStats?.();
+
+      // We should also refresh task submissions so the new score is in our state
+      if (isAuthenticatedStudent && course) {
+        const profile = await getStudentProfile().catch(() => null);
+        if (profile?.id) {
+           const submissions = await getStudentSubmissions(profile.id).catch(() => []);
+           setTaskSubmissions(submissions);
+        }
+      }
+
+      console.log("Task submission success handled");
+    } catch (error) {
+      console.error("Failed to refresh module status:", error);
     }
   };
 
@@ -78,9 +178,37 @@ const CourseDetailPage = () => {
 
   const currentLessonIndex = flatLessons.findIndex(l => l.id === selectedLesson?.id);
   const prevLesson = currentLessonIndex > 0 ? flatLessons[currentLessonIndex - 1] : null;
-  const nextLesson = currentLessonIndex >= 0 && currentLessonIndex < flatLessons.length - 1 ? flatLessons[currentLessonIndex + 1] : null;
+  const nextLessonCandidate = currentLessonIndex >= 0 && currentLessonIndex < flatLessons.length - 1 ? flatLessons[currentLessonIndex + 1] : null;
+  
+  const isNextModuleLocked = useMemo(() => {
+    if (!nextLessonCandidate || !course?.modules) return false;
+    const nextModuleIndex = course.modules.findIndex(m => m.id === nextLessonCandidate.module?.id || m.lessons?.some(l => l.id === nextLessonCandidate.id));
+    if (nextModuleIndex > 0) {
+      const prevModuleId = course.modules[nextModuleIndex - 1].id;
+      if (moduleStatuses[prevModuleId] === false) {
+        return true;
+      }
+    }
+    return false;
+  }, [nextLessonCandidate, course, moduleStatuses]);
 
-  if (loading) return <div className="p-6 text-center text-gray-500">Loading course...</div>;
+  const nextLesson = isNextModuleLocked ? null : nextLessonCandidate;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-screen bg-[#0b0f19] text-white overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative">
+          <div className="w-80 border-r border-white/10 flex flex-col h-full shrink-0">
+            <SidebarSkeleton />
+          </div>
+          <div className="flex-1 h-full overflow-y-auto pb-6 relative">
+            <ContentSkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error) return <div className="p-6 text-center text-red-500">{error}</div>;
   if (!course) return <div className="p-6 text-center text-gray-500">Course not found.</div>;
 
@@ -114,8 +242,14 @@ const CourseDetailPage = () => {
           <CourseSidebar 
             course={course} 
             selectedLesson={selectedLesson}
-            onSelectLesson={setSelectedLesson}
+            selectedTask={selectedTask}
+            onSelectLesson={handleLessonSelect}
+            onSelectTask={handleTaskSelect}
             completedLessons={completedLessons}
+            taskSubmissions={taskSubmissions}
+            isAuthenticatedStudent={isAuthenticatedStudent}
+            moduleStatuses={moduleStatuses}
+            onShowFinalResult={setShowFinalResult}
           />
         </div>
 
@@ -126,21 +260,43 @@ const CourseDetailPage = () => {
               <CourseSidebar 
                 course={course} 
                 selectedLesson={selectedLesson}
-                onSelectLesson={setSelectedLesson}
+                selectedTask={selectedTask}
+                onSelectLesson={handleLessonSelect}
+                onSelectTask={handleTaskSelect}
                 completedLessons={completedLessons}
+                taskSubmissions={taskSubmissions}
+                isAuthenticatedStudent={isAuthenticatedStudent}
+                moduleStatuses={moduleStatuses}
+                onShowFinalResult={setShowFinalResult}
               />
             </div>
           </div>
           
           <div className="flex-1 h-full overflow-y-auto pb-6 relative">
-            <LessonViewerPage 
-              lessonId={selectedLesson?.id} 
-              prevLesson={prevLesson}
-              nextLesson={nextLesson}
-              onNavigate={setSelectedLesson}
-              isCompleted={completedLessons.includes(selectedLesson?.id)}
-              onLessonCompleted={handleLessonCompleted}
-            />
+              {selectedLesson ? (
+                <LessonViewerPage 
+                  lessonId={selectedLesson?.id} 
+                  prevLesson={prevLesson}
+                  nextLesson={nextLessonCandidate}
+                  isNextModuleLocked={isNextModuleLocked}
+                  onNavigate={handleLessonSelect}
+                  isCompleted={completedLessons.includes(selectedLesson?.id)}
+                  onLessonCompleted={handleLessonCompleted}
+                />
+              ) : showFinalResult ? (
+                <FinalCourseResult courseId={id} />
+              ) : selectedTask ? (
+                <ModuleTaskViewer 
+                  task={selectedTask}
+                  courseId={id}
+                  submissions={taskSubmissions}
+                  onSubmissionSuccess={handleTaskSubmissionSuccess}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-slate-500 text-lg">Select a lesson or task from the sidebar to begin.</p>
+                </div>
+              )}
           </div>
         </div>
       </div>

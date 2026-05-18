@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { API_ENDPOINTS } from "../api/endpoints";
 
 const LOCAL_STUDENTS_KEY = "lms_admin_students_ui";
 
@@ -28,7 +29,7 @@ const normalizeStudent = (student) => ({
 // Admin: get all students list
 export const getAllStudents = async () => {
   try {
-    const response = await api.get("/students");
+    const response = await api.get(API_ENDPOINTS.STUDENT.BASE);
     if (Array.isArray(response.data)) {
       return response.data.map((student) =>
         normalizeStudent({
@@ -52,9 +53,12 @@ export const addStudent = async (payload) => {
   };
 
   try {
-    const { data } = await api.post("/students", requestBody);
+    const { data } = await api.post(API_ENDPOINTS.STUDENT.BASE, requestBody);
     return normalizeStudent(data ?? requestBody);
-  } catch {
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     const list = readLocalStudents();
     const student = {
       id: Date.now(),
@@ -76,9 +80,12 @@ export const updateStudent = async (id, payload) => {
   };
 
   try {
-    const { data } = await api.put(`/students/${id}`, requestBody);
+    const { data } = await api.put(`${API_ENDPOINTS.STUDENT.BASE}/${id}`, requestBody);
     return normalizeStudent(data ?? { id, ...requestBody });
-  } catch {
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     const list = readLocalStudents();
     const next = list.map((s) =>
       s.id === id
@@ -99,9 +106,12 @@ export const updateStudent = async (id, payload) => {
 
 export const deleteStudent = async (id) => {
   try {
-    await api.delete(`/students/${id}`);
+    await api.delete(`${API_ENDPOINTS.STUDENT.BASE}/${id}`);
     return { success: true };
-  } catch {
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     const list = readLocalStudents();
     const next = list.filter((s) => s.id !== id);
     writeLocalStudents(next);

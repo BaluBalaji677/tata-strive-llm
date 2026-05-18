@@ -6,8 +6,10 @@ import {
   setAccessToken,
 } from "../utils/token";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
 const api = axios.create({
-  baseURL: "http://localhost:8080",
+  baseURL: API_BASE_URL,
 });
 
 let isRefreshing = false;
@@ -28,6 +30,9 @@ const onRefreshFailed = (error) => {
 };
 
 api.interceptors.request.use((config) => {
+  if (!config.headers) {
+    config.headers = {};
+  }
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -48,12 +53,11 @@ api.interceptors.response.use(
     const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh");
 
     if (status === 401 && !isRefreshEndpoint) {
-      if (originalRequest._retry) {
-        clearAuth();
-        window.location.href = "/login";
-        return Promise.reject(error);
-      }
-
+        if (originalRequest._retry) {
+          clearAuth();
+          window.location.href = "/login";
+          return Promise.reject(error);
+        }
       originalRequest._retry = true;
 
       if (isRefreshing) {
@@ -82,7 +86,7 @@ api.interceptors.response.use(
         const { data } = await axios.post(
           "/auth/refresh",
           { refreshToken },
-          { baseURL: "http://localhost:8080" }
+          { baseURL: API_BASE_URL }
         );
 
         const newAccessToken = data.accessToken;
@@ -111,4 +115,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

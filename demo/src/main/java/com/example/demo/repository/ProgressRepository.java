@@ -19,4 +19,10 @@ public interface ProgressRepository extends JpaRepository<Progress, Long> {
 
     @Query("SELECT COUNT(p) FROM Progress p WHERE p.student.id = :studentId AND p.lesson.module.course.id = :courseId AND p.completed = true")
     long countCompletedLessonsByStudentAndCourse(@Param("studentId") Long studentId, @Param("courseId") Long courseId);
+
+    @Query("SELECT COUNT(l) FROM Lesson l WHERE l.module.id = :moduleId")
+    long countTotalLessonsByModuleId(@Param("moduleId") Long moduleId);
+
+    @Query("SELECT COUNT(p) FROM Progress p WHERE p.student.id = :studentId AND p.lesson.module.id = :moduleId AND p.completed = true")
+    long countCompletedLessonsByStudentAndModule(@Param("studentId") Long studentId, @Param("moduleId") Long moduleId);
 }

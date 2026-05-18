@@ -39,3 +39,12 @@ export const clearAuth = () => {
   localStorage.removeItem(USERNAME_KEY);
 };
 
+export const getAuth = () => {
+  const token = getAccessToken();
+
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};

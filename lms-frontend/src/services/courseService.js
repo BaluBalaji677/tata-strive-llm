@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { API_ENDPOINTS } from "../api/endpoints";
 
 const LOCAL_COURSES_KEY = "lms_admin_courses_ui";
 
@@ -26,7 +27,7 @@ const normalizeCourse = (course) => ({
 // If backend course list API exists, use it. Otherwise fallback to local UI data.
 export const getCourses = async () => {
   try {
-    const response = await api.get("/courses");
+    const response = await api.get(API_ENDPOINTS.COURSE.COURSES);
     // Don't arbitrarily strip fields like description via normalizeCourse
     return response.data;
   } catch (error) {
@@ -46,7 +47,7 @@ export const addCourse = async (payload) => {
 
   // Try backend first
   try {
-    const { data } = await api.post("/admin/course", requestBody);
+    const { data } = await api.post(API_ENDPOINTS.COURSE.ADMIN_COURSE, requestBody);
     return data;
   } catch {
     // Frontend fallback storage only if API is unavailable
@@ -71,7 +72,7 @@ export const updateCourse = async (id, payload) => {
 
   // Try backend first
   try {
-    const { data } = await api.put(`/courses/${id}`, requestBody);
+    const { data } = await api.put(`${API_ENDPOINTS.COURSE.COURSES}/${id}`, requestBody);
     return normalizeCourse(data ?? { id, ...requestBody });
   } catch {
     // Frontend fallback storage only if API is unavailable
@@ -89,7 +90,7 @@ export const updateCourse = async (id, payload) => {
 export const deleteCourse = async (id) => {
   // Try backend first
   try {
-    await api.delete(`/courses/${id}`);
+    await api.delete(`${API_ENDPOINTS.COURSE.COURSES}/${id}`);
     return { success: true };
   } catch {
     // Frontend fallback storage only if API is unavailable
@@ -102,7 +103,7 @@ export const deleteCourse = async (id) => {
 
 export const getCourseById = async (id) => {
   try {
-    const { data } = await api.get(`/course/${id}`);
+    const { data } = await api.get(`${API_ENDPOINTS.COURSE.COURSE_BY_ID}/${id}`);
     return data;
   } catch (error) {
     console.error(`API ERROR fetching course ${id}:`, error.response || error);
@@ -112,7 +113,7 @@ export const getCourseById = async (id) => {
 
 export const getLessonById = async (id) => {
   try {
-    const { data } = await api.get(`/lesson/${id}`);
+    const { data } = await api.get(`${API_ENDPOINTS.LESSON.LESSON_BY_ID}/${id}`);
     return data;
   } catch (error) {
     console.error(`API ERROR fetching lesson ${id}:`, error.response || error);
@@ -122,7 +123,7 @@ export const getLessonById = async (id) => {
 
 export const addModule = async (payload) => {
   try {
-    const { data } = await api.post("/admin/module", payload);
+    const { data } = await api.post(API_ENDPOINTS.MODULE.ADMIN_MODULE, payload);
     return data;
   } catch (error) {
     console.error("API ERROR adding module:", error.response || error);
@@ -132,7 +133,7 @@ export const addModule = async (payload) => {
 
 export const addLesson = async (payload) => {
   try {
-    const { data } = await api.post("/admin/lesson", payload);
+    const { data } = await api.post(API_ENDPOINTS.LESSON.ADMIN_LESSON, payload);
     return data;
   } catch (error) {
     console.error("API ERROR adding lesson:", error.response || error);
@@ -142,7 +143,7 @@ export const addLesson = async (payload) => {
 
 export const updateAdminCourse = async (id, payload) => {
   try {
-    const { data } = await api.put(`/admin/course/${id}`, payload);
+    const { data } = await api.put(`${API_ENDPOINTS.COURSE.ADMIN_COURSE}/${id}`, payload);
     return data;
   } catch (error) {
     console.error(`API ERROR updating admin course ${id}:`, error.response || error);
@@ -152,7 +153,7 @@ export const updateAdminCourse = async (id, payload) => {
 
 export const deleteAdminCourse = async (id) => {
   try {
-    const { data } = await api.delete(`/admin/course/${id}`);
+    const { data } = await api.delete(`${API_ENDPOINTS.COURSE.ADMIN_COURSE}/${id}`);
     return data;
   } catch (error) {
     console.error(`API ERROR deleting admin course ${id}:`, error.response || error);
@@ -162,7 +163,7 @@ export const deleteAdminCourse = async (id) => {
 
 export const updateModule = async (id, title) => {
   try {
-    const { data } = await api.put(`/admin/module/${id}`, { title });
+    const { data } = await api.put(`${API_ENDPOINTS.MODULE.ADMIN_MODULE}/${id}`, { title });
     return data;
   } catch (error) {
     console.error(`API ERROR updating module ${id}:`, error.response || error);
@@ -172,7 +173,7 @@ export const updateModule = async (id, title) => {
 
 export const deleteModule = async (id) => {
   try {
-    const { data } = await api.delete(`/admin/module/${id}`);
+    const { data } = await api.delete(`${API_ENDPOINTS.MODULE.ADMIN_MODULE}/${id}`);
     return data;
   } catch (error) {
     console.error(`API ERROR deleting module ${id}:`, error.response || error);
@@ -182,7 +183,7 @@ export const deleteModule = async (id) => {
 
 export const updateLesson = async (id, payload) => {
   try {
-    const { data } = await api.put(`/admin/lesson/${id}`, payload);
+    const { data } = await api.put(`${API_ENDPOINTS.LESSON.ADMIN_LESSON}/${id}`, payload);
     return data;
   } catch (error) {
     console.error(`API ERROR updating lesson ${id}:`, error.response || error);
@@ -192,7 +193,7 @@ export const updateLesson = async (id, payload) => {
 
 export const deleteLesson = async (id) => {
   try {
-    const { data } = await api.delete(`/admin/lesson/${id}`);
+    const { data } = await api.delete(`${API_ENDPOINTS.LESSON.ADMIN_LESSON}/${id}`);
     return data;
   } catch (error) {
     console.error(`API ERROR deleting lesson ${id}:`, error.response || error);

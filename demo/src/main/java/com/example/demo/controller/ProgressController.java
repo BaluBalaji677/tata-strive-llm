@@ -40,4 +40,12 @@ public class ProgressController {
         List<Long> completedLessons = progressService.getCompletedLessons(username, courseId);
         return ResponseEntity.ok(completedLessons);
     }
+
+    @GetMapping("/course/{courseId}/completion")
+    public ResponseEntity<com.example.demo.dto.CourseResultDTO> getCourseCompletion(Authentication authentication, @PathVariable Long courseId) {
+        String username = authentication.getName();
+        com.example.demo.entity.Student student = progressService.resolveStudentPublic(username);
+        com.example.demo.dto.CourseResultDTO result = progressService.getModuleTaskService().calculateCourseResult(student.getId(), courseId);
+        return ResponseEntity.ok(result);
+    }
 }

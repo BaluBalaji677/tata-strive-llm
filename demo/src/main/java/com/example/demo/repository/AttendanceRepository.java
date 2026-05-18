@@ -21,6 +21,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     Optional<Attendance> findByStudentAndDate(Student student, LocalDate date);
 
+    long countByDate(LocalDate date);
+
     @Modifying
     @Transactional
     void deleteByStudent_Id(Long studentId);

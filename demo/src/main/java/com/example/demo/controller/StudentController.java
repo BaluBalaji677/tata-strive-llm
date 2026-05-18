@@ -2,11 +2,19 @@ package com.example.demo.controller;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.demo.entity.Student;
 import com.example.demo.repository.StudentRepository;
 import com.example.demo.service.StudentService;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/students")
@@ -21,6 +29,7 @@ public class StudentController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<StudentListResponse> getAllStudents() {
         List<StudentListResponse> response = studentRepository.findAllWithUser().stream()
                 .map(this::toResponse)
@@ -32,6 +41,16 @@ public class StudentController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public StudentListResponse createStudent(@RequestBody StudentCreateRequest request) {
+        // Debug logging
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null) {
+            System.out.println("=== DEBUG /students POST ===");
+            System.out.println("Authenticated username: " + auth.getName());
+            System.out.println("Granted authorities: " + auth.getAuthorities());
+            System.out.println("Request path: /students (POST)");
+            System.out.println("============================");
+        }
+
         Student created = studentService.createStudent(
                 request.fullName(),
                 request.username(),

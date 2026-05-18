@@ -53,6 +53,7 @@ public class AttendanceController {
         return ResponseEntity.ok(attendanceService.getMyAttendanceSummary());
     }
 
+
     private AttendanceResponse toResponse(Attendance a) {
         String roll = a.getStudent() != null ? a.getStudent().getRollNumber() : "Unknown";
         String name = a.getStudent() != null ? a.getStudent().getFullName() : "Unknown";
