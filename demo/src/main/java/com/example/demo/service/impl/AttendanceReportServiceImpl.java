@@ -34,23 +34,8 @@ public class AttendanceReportServiceImpl implements AttendanceReportService {
         this.attendanceRepository = attendanceRepository;
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public void generateDailyReport() {
-        log.info("Generating attendance report...");
-
-        List<Student> students = studentRepository.findAll();
+    private byte[] generateWorkbookBytes(List<Student> students) {
         LocalDate today = LocalDate.now();
-        String fileName = "attendance_" + today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + ".xlsx";
-        String reportsDir = "reports";
-        String filePath = reportsDir + File.separator + fileName;
-
-        // Create reports directory if it doesn't exist
-        File dir = new File(reportsDir);
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Attendance Report");
 
@@ -96,17 +81,59 @@ public class AttendanceReportServiceImpl implements AttendanceReportService {
                 sheet.autoSizeColumn(i);
             }
 
-            // Write to file
-            try (FileOutputStream fos = new FileOutputStream(filePath)) {
-                workbook.write(fos);
+            // Write to byte array
+            try (java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream()) {
+                workbook.write(bos);
+                return bos.toByteArray();
             }
-
-            log.info("Report generated successfully: {}", filePath);
-
         } catch (IOException e) {
-            log.error("Error generating attendance report", e);
+            log.error("Error generating attendance report in memory", e);
             throw new RuntimeException("Failed to generate attendance report", e);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void generateDailyReport() {
+        log.info("Generating daily attendance report on disk...");
+        List<Student> students = studentRepository.findAll();
+        LocalDate today = LocalDate.now();
+        String fileName = "attendance_" + today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) + ".xlsx";
+        String reportsDir = "reports";
+        String filePath = reportsDir + File.separator + fileName;
+
+        // Create reports directory if it doesn't exist
+        File dir = new File(reportsDir);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        byte[] excelBytes = generateWorkbookBytes(students);
+        try (FileOutputStream fos = new FileOutputStream(filePath)) {
+            fos.write(excelBytes);
+            log.info("Report generated successfully: {}", filePath);
+        } catch (IOException e) {
+            log.error("Error saving attendance report to disk", e);
+            throw new RuntimeException("Failed to save attendance report to disk", e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generateTodayReportForUser(com.example.demo.entity.User user) {
+        log.info("Generating attendance report in-memory for user: {}, role: {}", user.getUsername(), user.getRole());
+        List<Student> students;
+        if (user.getRole() == com.example.demo.entity.Role.PRINCIPAL) {
+            students = studentRepository.findAll();
+        } else if (user.getRole() == com.example.demo.entity.Role.ADMIN) {
+            students = studentRepository.findByCourse_Teacher_Id(user.getId());
+        } else {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.FORBIDDEN, 
+                "Role not authorized to download report"
+            );
+        }
+        return generateWorkbookBytes(students);
     }
 
     private String getTodayStatus(Student student, LocalDate today) {

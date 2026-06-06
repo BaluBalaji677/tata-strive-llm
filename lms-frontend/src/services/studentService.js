@@ -1,11 +1,12 @@
 import api from "../api/axios";
 import { API_ENDPOINTS } from "../api/endpoints";
+import { getUsername } from "../utils/token";
 
-const LOCAL_STUDENTS_KEY = "lms_admin_students_ui";
+const getLocalStudentsKey = () => `lms_admin_students_ui_${getUsername() || "anonymous"}`;
 
 const readLocalStudents = () => {
   try {
-    const raw = localStorage.getItem(LOCAL_STUDENTS_KEY);
+    const raw = localStorage.getItem(getLocalStudentsKey());
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -14,7 +15,7 @@ const readLocalStudents = () => {
 };
 
 const writeLocalStudents = (students) => {
-  localStorage.setItem(LOCAL_STUDENTS_KEY, JSON.stringify(students));
+  localStorage.setItem(getLocalStudentsKey(), JSON.stringify(students));
 };
 
 const normalizeStudent = (student) => ({
@@ -24,6 +25,8 @@ const normalizeStudent = (student) => ({
   username: student?.username ?? student?.email ?? "",
   rollNumber: student?.rollNumber ?? "",
   status: student?.status ?? "ACTIVE",
+  courseId: student?.courseId ?? null,
+  courseTitle: student?.courseTitle ?? "",
 });
 
 // Admin: get all students list
@@ -38,8 +41,11 @@ export const getAllStudents = async () => {
         })
       );
     }
-    return readLocalStudents();
-  } catch {
+    throw new Error("Unexpected students response");
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     return readLocalStudents();
   }
 };
@@ -50,6 +56,7 @@ export const addStudent = async (payload) => {
     username: payload?.username ?? "",
     rollNumber: payload?.rollNumber ?? "",
     status: payload?.status ?? "ACTIVE",
+    courseId: payload?.courseId ?? null,
   };
 
   try {
@@ -64,6 +71,7 @@ export const addStudent = async (payload) => {
       id: Date.now(),
       ...requestBody,
       email: requestBody.username ?? "",
+      courseTitle: payload?.courseTitle ?? "",
     };
     const next = [student, ...list];
     writeLocalStudents(next);
@@ -77,6 +85,7 @@ export const updateStudent = async (id, payload) => {
     username: payload?.username ?? "",
     rollNumber: payload?.rollNumber ?? "",
     status: payload?.status ?? "ACTIVE",
+    courseId: payload?.courseId ?? null,
   };
 
   try {
@@ -96,6 +105,8 @@ export const updateStudent = async (id, payload) => {
             username: requestBody.username || s.username,
             rollNumber: requestBody.rollNumber || s.rollNumber,
             status: requestBody.status || s.status,
+            courseId: requestBody.courseId ?? s.courseId,
+            courseTitle: payload?.courseTitle ?? s.courseTitle,
           }
         : s
     );
@@ -117,4 +128,9 @@ export const deleteStudent = async (id) => {
     writeLocalStudents(next);
     return { success: true };
   }
+};
+
+export const resetStudentPassword = async (studentId, payload) => {
+  const { data } = await api.put(`/admin/students/${studentId}/reset-password`, payload);
+  return data;
 };

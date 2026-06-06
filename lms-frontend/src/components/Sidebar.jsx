@@ -4,8 +4,10 @@ function Sidebar({ role }) {
   const principalMenu = [
     { to: "/principal/dashboard", label: "Dashboard" },
     { to: "/principal/teachers", label: "Teachers" },
+    { to: "/principal/admins", label: "Manage Admins" },
     { to: "/principal/students", label: "Students" },
     { to: "/principal/courses", label: "Courses" },
+    { to: "/admin/quizzes", label: "Quizzes" },
     { to: "/principal/analytics", label: "Analytics" },
     { to: "/profile", label: "Profile" },
   ];
@@ -16,6 +18,8 @@ function Sidebar({ role }) {
     { to: "/admin/students", label: "Students" },
     { to: "/admin/student-progress", label: "Student Progress" },
     { to: "/admin/courses", label: "Courses" },
+    { to: "/admin/tasks", label: "Tasks" },
+    { to: "/admin/quizzes", label: "Quizzes" },
     { to: "/profile", label: "Profile" },
   ];
 
@@ -23,6 +27,7 @@ function Sidebar({ role }) {
     { to: "/student/dashboard", label: "Dashboard" },
     { to: "/student/courses", label: "Courses" },
     { to: "/student/tasks", label: "Tasks" },
+    { to: "/student/quizzes", label: "Quizzes" },
     { to: "/student/attendance", label: "Attendance" },
     { to: "/student/notifications", label: "Notifications" },
     { to: "/profile", label: "Profile" },

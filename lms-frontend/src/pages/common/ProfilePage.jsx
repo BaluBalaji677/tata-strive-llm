@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getProfile, updateProfile, uploadProfileImage } from "../../services/profileService";
+import { getAccessToken, getRole } from "../../utils/token";
 
 const ProfilePage = () => {
   const [profile, setProfile] = useState({
@@ -17,6 +18,11 @@ const ProfilePage = () => {
   }, []);
 
   const fetchProfile = async () => {
+    const role = getRole();
+    console.log(
+      `[ProfilePage] current role=${role} tokenExists=${!!getAccessToken()}`
+    );
+
     try {
       const data = await getProfile();
       setProfile({

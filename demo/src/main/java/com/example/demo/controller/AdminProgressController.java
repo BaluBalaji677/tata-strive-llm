@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/admin/student-progress")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('ADMIN') or hasRole('PRINCIPAL')")
 public class AdminProgressController {
 
     private final ProgressService progressService;

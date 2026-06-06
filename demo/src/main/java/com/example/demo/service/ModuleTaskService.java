@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.*;
-import com.example.demo.dto.ModuleTaskDTO;
 import com.example.demo.entity.Module;
 import com.example.demo.repository.*;
 import org.slf4j.Logger;

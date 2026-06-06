@@ -1,0 +1,29 @@
+{
+  "properties": [
+    {
+      "name": "app.default-student-password",
+      "type": "java.lang.String",
+      "description": "Default password assigned when student accounts are created."
+    },
+    {
+      "name": "face.recognition.threshold",
+      "type": "java.lang.Double",
+      "description": "Similarity threshold used by face recognition."
+    },
+    {
+      "name": "cloudinary.cloud-name",
+      "type": "java.lang.String",
+      "description": "Cloudinary cloud name used for attendance evidence uploads."
+    },
+    {
+      "name": "cloudinary.api-key",
+      "type": "java.lang.String",
+      "description": "Cloudinary API key used for attendance evidence uploads."
+    },
+    {
+      "name": "cloudinary.api-secret",
+      "type": "java.lang.String",
+      "description": "Cloudinary API secret used for attendance evidence uploads."
+    }
+  ]
+}

@@ -37,7 +37,10 @@ public class CustomUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("JWT subject is missing");
         }
 
-        Student student = studentRepository.findByRollNumber(subject).orElse(null);
+        Student student = studentRepository.findByUser_Username(subject)
+                .or(() -> studentRepository.findByUser_Email(subject))
+                .or(() -> studentRepository.findByRollNumber(subject))
+                .orElse(null);
         if (student != null) {
             User user = student.getUser();
             if (user == null) {
@@ -45,7 +48,7 @@ public class CustomUserDetailsService implements UserDetailsService {
             }
 
             return new org.springframework.security.core.userdetails.User(
-                    student.getRollNumber(),
+                    user.getUsername(),
                     user.getPasswordHash(),
                     List.of(new SimpleGrantedAuthority(toAuthority(user)))
             );

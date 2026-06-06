@@ -1,33 +1,48 @@
 import { useState, useEffect } from "react";
 import { getAuth } from "../../utils/token";
+import { fetchJson } from "../../api/fetchJson";
 
 function PrincipalStudentsPage() {
   const [students, setStudents] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedAdminId, setSelectedAdminId] = useState("");
 
   useEffect(() => {
-    fetchStudents();
-  }, [page]);
+    fetchPageData();
+  }, [page, selectedAdminId]);
 
-  const fetchStudents = async () => {
+  const fetchPageData = async () => {
     try {
+      setLoading(true);
+      setError("");
       const auth = getAuth();
-      const response = await fetch(
-        `/api/principal/students?page=${page}&size=10`,
-        {
+      const selectedAdminQuery = selectedAdminId
+        ? `&adminId=${selectedAdminId}`
+        : "";
+
+      const [studentsData, adminsData] = await Promise.all([
+        fetchJson(
+          `/api/principal/students?page=${page}&size=10${selectedAdminQuery}`,
+          {
+            headers: {
+              Authorization: `Bearer ${auth?.accessToken}`,
+            },
+          }
+        ),
+        fetchJson("/api/principal/admins?page=0&size=100", {
           headers: {
             Authorization: `Bearer ${auth?.accessToken}`,
           },
-        }
-      );
+        }),
+      ]);
 
-      if (!response.ok) throw new Error("Failed to fetch students");
-      const data = await response.json();
-      setStudents(data.content || []);
-      setTotalPages(data.totalPages || 1);
+      setStudents(studentsData.content || []);
+      setTotalPages(studentsData.totalPages || 1);
+      setAdmins(adminsData.content || []);
     } catch (err) {
       setError(err.message);
       console.error(err);
@@ -51,7 +66,37 @@ function PrincipalStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-white">All Students</h1>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">All Students</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Filter students by admin to view isolated student data for each admin.
+          </p>
+        </div>
+
+        <div className="w-full max-w-sm">
+          <label className="mb-2 block text-sm font-medium text-slate-200">
+            Select admin
+          </label>
+          <select
+            value={selectedAdminId}
+            onChange={(e) => {
+              setSelectedAdminId(e.target.value);
+              setPage(0);
+            }}
+            className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20"
+          >
+            <option value="" className="text-slate-900">
+              All admins
+            </option>
+            {admins.map((admin) => (
+              <option key={admin.id} value={admin.id} className="text-slate-900">
+                {admin.fullName || admin.username} ({admin.username})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {error && (
         <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 text-red-400">
@@ -90,7 +135,7 @@ function PrincipalStudentsPage() {
                   <td className="px-4 py-3 text-gray-400">{student.email}</td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-sm">
-                      Active
+                      {student.status || "ACTIVE"}
                     </span>
                   </td>
                 </tr>

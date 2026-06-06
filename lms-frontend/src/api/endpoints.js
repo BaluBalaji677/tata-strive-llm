@@ -1,5 +1,6 @@
 export const API_ENDPOINTS = {
   AUTH: {
+    LOGIN: "/auth/login",
     ADMIN_LOGIN: "/auth/admin/login",
     STUDENT_LOGIN: "/auth/student/login",
     REFRESH: "/auth/refresh",
@@ -8,6 +9,14 @@ export const API_ENDPOINTS = {
     BASE: "/students",
     CHANGE_PASSWORD: "/student/change-password",
     TASKS: "/student/tasks",
+  },
+  ADMIN_TASK: {
+    BASE: "/admin/tasks",
+  },
+  QUIZ: {
+    ADMIN_BASE: "/admin/quizzes",
+    ADMIN_SUBMISSIONS: "/admin/quizzes/submissions",
+    STUDENT_BASE: "/student/quizzes",
   },
   COURSE: {
     COURSES: "/courses",
@@ -40,6 +49,7 @@ export const API_ENDPOINTS = {
     FACE_RECOGNIZE_MULTIPLE: "/api/attendance/face-recognition",
     FACE_REGISTER: "/face/register",
     FACE_RECOGNIZE: "/face/recognize",
+    EVIDENCE: "/api/teacher/attendance/evidence",
   },
   PROGRESS: {
     COMPLETE_LESSON: "/api/student/progress/complete",
@@ -49,7 +59,10 @@ export const API_ENDPOINTS = {
   },
   PROFILE: {
     BASE: "/api/profile",
-    UPLOAD_IMAGE: "/api/profile/upload-image",
+    ADMIN_BASE: "/api/admin/profile",
+    STUDENT_BASE: "/api/student/profile",
+    PRINCIPAL_BASE: "/api/principal/profile",
+    UPLOAD_IMAGE: "/upload-image",
   },
   CERTIFICATE: {
     ADMIN_UPLOAD: "/api/admin/courses",

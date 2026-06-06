@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.demo.entity.Course;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Student;
 import com.example.demo.entity.User;
@@ -27,17 +28,20 @@ public class StudentServiceImpl implements StudentService {
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TeacherAccessService teacherAccessService;
 
     public StudentServiceImpl(
             StudentRepository studentRepository,
             UserRepository userRepository,
             AttendanceRepository attendanceRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            TeacherAccessService teacherAccessService
     ) {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.attendanceRepository = attendanceRepository;
         this.passwordEncoder = passwordEncoder;
+        this.teacherAccessService = teacherAccessService;
     }
 
     @Override
@@ -46,16 +50,22 @@ public class StudentServiceImpl implements StudentService {
             String fullName,
             String username,
             String rollNumber,
-            String status
+            String status,
+            Long courseId
     ) {
 
         String normalizedRollNumber =
                 normalizeRequired(rollNumber, "rollNumber");
 
-        if (studentRepository.findByRollNumber(normalizedRollNumber).isPresent()) {
+        Course course =
+                teacherAccessService.requireCourseTeacherManagement(courseId);
+
+        Long adminId = resolveAdminId(course);
+
+        if (studentRepository.existsByRollNumberAndAdminId(normalizedRollNumber, adminId)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "rollNumber already exists"
+                    "Roll number already exists for this admin"
             );
         }
 
@@ -92,6 +102,7 @@ public class StudentServiceImpl implements StudentService {
         student.setStatus(resolveStatus(status));
 
         student.setUser(user);
+        student.setCourse(course);
 
         return studentRepository.save(student);
     }
@@ -103,96 +114,66 @@ public class StudentServiceImpl implements StudentService {
             String fullName,
             String username,
             String rollNumber,
-            String status
+            String status,
+            Long courseId
     ) {
 
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Student not found"
-                        )
-                );
+        Student student = teacherAccessService.requireStudentAccess(id);
 
-        String normalizedRollNumber =
-                normalizeRequired(rollNumber, "rollNumber");
-
-        studentRepository.findByRollNumber(normalizedRollNumber)
-                .ifPresent(existing -> {
-
-                    if (!existing.getId().equals(id)) {
-
-                        throw new ResponseStatusException(
-                                HttpStatus.CONFLICT,
-                                "rollNumber already exists"
-                        );
-                    }
-                });
-
-        student.setRollNumber(normalizedRollNumber);
-
-        student.setFullName(
-                normalizeRequired(fullName, "fullName")
-        );
-
-        student.setStatus(resolveStatus(status));
-
-        String normalizedUsername =
-                username == null ? "" : username.trim();
-
-        if (!normalizedUsername.isEmpty()) {
-
-            User linkedUser = student.getUser();
-
-            if (linkedUser != null) {
-
-                userRepository.findByUsername(normalizedUsername)
-                        .ifPresent(existingUser -> {
-
-                            if (!existingUser.getId()
-                                    .equals(linkedUser.getId())) {
-
-                                throw new ResponseStatusException(
-                                        HttpStatus.CONFLICT,
-                                        "username already exists"
-                                );
-                            }
-                        });
-
-                linkedUser.setUsername(normalizedUsername);
-
-                userRepository.save(linkedUser);
-
-            } else {
-
-                if (userRepository.findByUsername(normalizedUsername).isPresent()) {
-
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            "username already exists"
-                    );
-                }
-
-                User user = new User();
-
-                user.setUsername(normalizedUsername);
-
-                user.setPasswordHash(
-                        passwordEncoder.encode(defaultStudentPassword)
-                );
-
-                user.setRole(Role.STUDENT);
-
-                student.setUser(userRepository.save(user));
-            }
+        Course targetCourse = student.getCourse();
+        if (courseId != null) {
+            targetCourse = teacherAccessService.requireCourseTeacherManagement(courseId);
         }
 
+        String targetRollNumber = student.getRollNumber();
+        if (rollNumber != null) {
+            targetRollNumber = normalizeRequired(rollNumber, "rollNumber");
+        }
+
+        if (rollNumber != null || courseId != null) {
+            if (targetCourse == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "courseId is required"
+                );
+            }
+
+            Long adminId = resolveAdminId(targetCourse);
+
+            studentRepository.findByRollNumberAndAdminId(targetRollNumber, adminId)
+                    .ifPresent(existing -> {
+                        if (!existing.getId().equals(id)) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.CONFLICT,
+                                    "Roll number already exists for this admin"
+                            );
+                        }
+                    });
+        }
+
+        if (rollNumber != null) {
+            student.setRollNumber(targetRollNumber);
+        }
+
+        if (fullName != null) {
+            student.setFullName(normalizeRequired(fullName, "fullName"));
+        }
+
+        if (status != null) {
+            student.setStatus(resolveStatus(status));
+        }
+
+        if (courseId != null) {
+            student.setCourse(targetCourse);
+        }
+        
         return studentRepository.save(student);
     }
 
     @Override
     @Transactional
     public void deleteStudent(Long id) {
+        teacherAccessService.requireStudentAccess(id);
 
         if (!studentRepository.existsById(id)) {
 
@@ -309,5 +290,17 @@ public class StudentServiceImpl implements StudentService {
         }
 
         return candidate;
+    }
+
+    private Long resolveAdminId(Course course) {
+
+        if (course == null || course.getTeacher() == null || course.getTeacher().getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Assigned course must belong to an admin"
+            );
+        }
+
+        return course.getTeacher().getId();
     }
 }

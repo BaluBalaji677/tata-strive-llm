@@ -23,8 +23,17 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     long countByDate(LocalDate date);
 
+    List<Attendance> findByStudent_Course_Teacher_UsernameOrderByDateAsc(String username);
+
+    List<Attendance> findByStudent_Course_Teacher_UsernameAndStudent_RollNumberOrderByDateAsc(String username, String rollNumber);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Attendance a WHERE a.markedByUser = :user OR (a.markedByAdmin = true AND a.markedByUser IS NULL) ORDER BY a.date DESC")
+    List<Attendance> findByMarkedByUserOrderByDateDesc(@org.springframework.data.repository.query.Param("user") com.example.demo.entity.User user);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Attendance a WHERE a.student = :student AND (a.markedByUser = :user OR (a.markedByAdmin = true AND a.markedByUser IS NULL)) ORDER BY a.date DESC")
+    List<Attendance> findByStudentAndMarkedByUserOrderByDateDesc(@org.springframework.data.repository.query.Param("student") Student student, @org.springframework.data.repository.query.Param("user") com.example.demo.entity.User user);
+
     @Modifying
     @Transactional
     void deleteByStudent_Id(Long studentId);
 }
-

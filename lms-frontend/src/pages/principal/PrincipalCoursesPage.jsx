@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getAuth } from "../../utils/token";
+import { fetchJson } from "../../api/fetchJson";
 
 function PrincipalCoursesPage() {
   const [courses, setCourses] = useState([]);
@@ -13,14 +14,11 @@ function PrincipalCoursesPage() {
   const fetchCourses = async () => {
     try {
       const auth = getAuth();
-      const response = await fetch("/api/principal/courses", {
+      const data = await fetchJson("/api/principal/courses", {
         headers: {
           Authorization: `Bearer ${auth?.accessToken}`,
         },
       });
-
-      if (!response.ok) throw new Error("Failed to fetch courses");
-      const data = await response.json();
       setCourses(data.courses || []);
     } catch (err) {
       setError(err.message);

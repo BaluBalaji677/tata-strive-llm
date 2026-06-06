@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import StatCard from "../../components/StatCard";
 import { getAuth } from "../../utils/token";
+import { fetchJson } from "../../api/fetchJson";
 
 function PrincipalDashboardPage() {
   const [analytics, setAnalytics] = useState(null);
@@ -14,14 +15,11 @@ function PrincipalDashboardPage() {
   const fetchAnalytics = async () => {
     try {
       const auth = getAuth();
-      const response = await fetch("/api/principal/analytics/dashboard", {
+      const data = await fetchJson("/api/principal/analytics/dashboard", {
         headers: {
           Authorization: `Bearer ${auth?.accessToken}`,
         },
       });
-
-      if (!response.ok) throw new Error("Failed to fetch analytics");
-      const data = await response.json();
       setAnalytics(data);
     } catch (err) {
       setError(err.message);

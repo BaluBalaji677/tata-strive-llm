@@ -5,8 +5,7 @@ import {
   getRefreshToken,
   setAccessToken,
 } from "../utils/token";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { API_BASE_URL } from "./config";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -37,6 +36,9 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.debug(
+    `[axios] request ${config.method?.toUpperCase() || "GET"} ${config.url} tokenExists=${!!token}`
+  );
   return config;
 });
 
@@ -53,11 +55,13 @@ api.interceptors.response.use(
     const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh");
 
     if (status === 401 && !isRefreshEndpoint) {
-        if (originalRequest._retry) {
-          clearAuth();
-          window.location.href = "/login";
-          return Promise.reject(error);
-        }
+      if (originalRequest._retry) {
+        console.warn(`[axios] repeated 401 for ${originalRequest.url}, clearing auth`);
+        clearAuth();
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+
       originalRequest._retry = true;
 
       if (isRefreshing) {
@@ -75,6 +79,7 @@ api.interceptors.response.use(
 
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
+        console.warn(`[axios] 401 without refresh token for ${originalRequest.url}`);
         clearAuth();
         window.location.href = "/login";
         return Promise.reject(error);
@@ -96,9 +101,16 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
+        const refreshStatus = refreshError?.response?.status;
         onRefreshFailed(refreshError);
-        clearAuth();
-        window.location.href = "/login";
+        if (refreshStatus === 401 || refreshStatus === 403) {
+          clearAuth();
+          window.location.href = "/login";
+        } else {
+          console.warn(
+            `[axios] refresh endpoint error ${refreshStatus} for ${originalRequest.url}, preserving auth`
+          );
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,6 +18,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import com.example.demo.security.JwtFilter;
 
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
@@ -49,7 +51,10 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
 
                 // 🔥 PRINCIPAL (Super Admin) - Full access
-                .requestMatchers("/principal/**").hasRole("PRINCIPAL")
+                .requestMatchers("/principal/**", "/api/principal/**").hasRole("PRINCIPAL")
+                .requestMatchers("/api/admin/**").hasAnyRole("PRINCIPAL", "ADMIN")
+                .requestMatchers("/api/teacher/**").hasAnyRole("PRINCIPAL", "ADMIN")
+                .requestMatchers("/api/student/**").hasRole("STUDENT")
                 
                 // 🔥 ADMIN (Teachers) - Admin + Course + Student endpoints
                 .requestMatchers("/admin/**").hasAnyRole("PRINCIPAL", "ADMIN")
@@ -75,6 +80,20 @@ public class SecurityConfig {
 
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(401);
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"error\":\"Unauthorized\",\"path\":\"" + request.getRequestURI() + "\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(403);
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"error\":\"Forbidden\",\"path\":\"" + request.getRequestURI() + "\"}");
+                })
             )
 
             .formLogin(form -> form.disable())

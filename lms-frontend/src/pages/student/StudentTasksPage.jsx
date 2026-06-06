@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getStudentTasks } from "../../api/taskApi";
+import { getStudentTasks, submitStudentTask } from "../../api/taskApi";
 
 const normalizeTask = (task) => {
   const rawStatus = String(task?.status ?? "").toLowerCase();
@@ -27,17 +27,24 @@ function StudentTasksPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSubmit = (taskId) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: "Completed",
-            }
-          : task
-      )
-    );
+  const handleSubmit = (assignmentId) => {
+    submitStudentTask(assignmentId)
+      .then(() => {
+        setTasks((prev) =>
+          prev.map((task) =>
+            task.id === assignmentId
+              ? {
+                  ...task,
+                  status: "Completed",
+                }
+              : task
+          )
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to submit task", err);
+        alert(err?.response?.data?.message || "Failed to submit task.");
+      });
   };
 
   return (

@@ -7,14 +7,25 @@ import {
   deleteStudent,
   getAllStudents,
   updateStudent,
+  resetStudentPassword,
 } from "../../services/studentService";
+import { getCourses } from "../../services/courseService";
+import ResetPasswordModal from "../../components/ResetPasswordModal";
+import Toast from "../../components/Toast";
 
 function Students() {
   const [students, setStudents] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [editingStudent, setEditingStudent] = useState(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedStudentForReset, setSelectedStudentForReset] = useState(null);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("success");
   const didFetchRef = useRef(false);
 
   const loadStudents = async () => {
@@ -23,6 +34,8 @@ function Students() {
     try {
       const data = await getAllStudents();
       setStudents(data);
+      const availableCourses = await getCourses();
+      setCourses(Array.isArray(availableCourses) ? availableCourses : []);
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load students");
     } finally {
@@ -68,6 +81,30 @@ function Students() {
     }
   };
 
+  const handleResetPasswordClick = (student) => {
+    setSelectedStudentForReset(student);
+    setResetModalOpen(true);
+  };
+
+  const handleResetPasswordConfirm = async (newPassword) => {
+    if (!selectedStudentForReset?.id) return;
+    setResetLoading(true);
+    try {
+      await resetStudentPassword(selectedStudentForReset.id, { newPassword });
+      setToastMessage("Password reset successfully.");
+      setToastType("success");
+      setShowToast(true);
+      setResetModalOpen(false);
+      setSelectedStudentForReset(null);
+    } catch (err) {
+      setToastMessage(err?.response?.data?.message || "Failed to reset password.");
+      setToastType("error");
+      setShowToast(true);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const key = search.trim().toLowerCase();
     if (!key) return students;
@@ -85,7 +122,7 @@ function Students() {
         <p className="text-sm text-slate-300">Create, update, delete and search registered students.</p>
       </div>
 
-      <StudentForm onSubmit={handleSubmit} initialData={editingStudent} />
+      <StudentForm onSubmit={handleSubmit} initialData={editingStudent} courses={courses} />
 
       {editingStudent ? (
         <button
@@ -122,8 +159,26 @@ function Students() {
           students={filtered}
           onEdit={setEditingStudent}
           onDelete={handleDelete}
+          onResetPassword={handleResetPasswordClick}
         />
       ) : null}
+
+      <ResetPasswordModal
+        isOpen={resetModalOpen}
+        user={selectedStudentForReset}
+        onClose={() => setResetModalOpen(false)}
+        onConfirm={handleResetPasswordConfirm}
+        loading={resetLoading}
+        role="student"
+      />
+
+      {showToast && (
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+        />
+      )}
     </div>
   );
 }

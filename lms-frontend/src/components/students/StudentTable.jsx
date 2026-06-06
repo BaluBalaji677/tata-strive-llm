@@ -4,7 +4,7 @@ const statusClasses = {
   REJECTED: "bg-rose-500/20 text-rose-300 border border-rose-400/40",
 };
 
-function StudentTable({ students = [], onEdit, onDelete }) {
+function StudentTable({ students = [], onEdit, onDelete, onResetPassword }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-white/20 bg-white/10 shadow-lg backdrop-blur-xl">
       <table className="min-w-full text-left text-sm text-slate-100">
@@ -56,6 +56,13 @@ function StudentTable({ students = [], onEdit, onDelete }) {
                         className="rounded-lg bg-rose-500/70 px-3 py-1.5 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-rose-500"
                       >
                         Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onResetPassword?.(student)}
+                        className="rounded-lg bg-emerald-500/70 px-3 py-1.5 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-emerald-500"
+                      >
+                        Reset Password
                       </button>
                     </div>
                   </td>

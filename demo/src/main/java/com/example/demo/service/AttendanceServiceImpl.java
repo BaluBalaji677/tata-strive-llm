@@ -12,8 +12,10 @@ import org.springframework.stereotype.Service;
 
 import com.example.demo.entity.Attendance;
 import com.example.demo.entity.Student;
+import com.example.demo.entity.User;
 import com.example.demo.repository.AttendanceRepository;
 import com.example.demo.repository.StudentRepository;
+import com.example.demo.repository.UserRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,21 +25,31 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private final AttendanceRepository attendanceRepo;
     private final StudentRepository studentRepo;
+    private final UserRepository userRepo;
 
-    public AttendanceServiceImpl(AttendanceRepository attendanceRepo, StudentRepository studentRepo) {
+    public AttendanceServiceImpl(AttendanceRepository attendanceRepo, StudentRepository studentRepo, UserRepository userRepo) {
         this.attendanceRepo = attendanceRepo;
         this.studentRepo = studentRepo;
+        this.userRepo = userRepo;
     }
 
     @Override
     public List<Attendance> getAllAttendance(String rollNumber) {
-        System.out.println("=== [ADMIN] Fetching ALL Attendance ===");
+        System.out.println("=== [ADMIN] Fetching Admin-specific Attendance ===");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        User currentUser = userRepo.findByUsername(auth.getName())
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Admin user not found"));
+
         if (rollNumber != null && !rollNumber.isBlank()) {
             return studentRepo.findByRollNumber(rollNumber)
-                    .map(attendanceRepo::findByStudentOrderByDateAsc)
+                    .map(student -> attendanceRepo.findByStudentAndMarkedByUserOrderByDateDesc(student, currentUser))
                     .orElse(java.util.List.of());
         }
-        return attendanceRepo.findAll();
+        return attendanceRepo.findByMarkedByUserOrderByDateDesc(currentUser);
     }
 
     @Override
@@ -64,11 +76,17 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new RuntimeException("Attendance already marked for today");
         }
 
+        User currentUser = null;
+        if (auth != null && auth.getName() != null && !auth.getName().isBlank()) {
+            currentUser = userRepo.findByUsername(auth.getName()).orElse(null);
+        }
+
         Attendance a = new Attendance();
         a.setStudent(student);
         a.setDate(today);
         a.setPresent(present);
         a.setMarkedByAdmin(true);
+        a.setMarkedByUser(currentUser);
         a.setStatus(present ? "PRESENT" : "ABSENT");
 
         // createdAt is initialized by entity default, but we set it explicitly for clarity.
@@ -118,13 +136,13 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new RuntimeException("Unauthorized");
         }
 
-        // Student identity is rollNumber (JWT subject).
-        String rollNumber = auth.getName();
+        String identifier = auth.getName();
         System.out.println("=== [STUDENT] Attendance Lookup ===");
-        System.out.println("JWT auth name (rollNumber): " + rollNumber);
+        System.out.println("JWT auth name (identifier): " + identifier);
         System.out.println("JWT authorities: " + auth.getAuthorities());
 
-        return studentRepo.findByRollNumber(rollNumber)
+        return studentRepo.findByUser_Username(identifier)
+                .or(() -> studentRepo.findByRollNumber(identifier))
                 .orElseThrow(() -> new RuntimeException("Student not found"));
     }
 
@@ -218,4 +236,3 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
     }
 }
-

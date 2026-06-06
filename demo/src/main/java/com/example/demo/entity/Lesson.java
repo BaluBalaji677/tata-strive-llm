@@ -16,7 +16,7 @@ public class Lesson {
     private String title;
 
     @Lob
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     private int orderIndex;

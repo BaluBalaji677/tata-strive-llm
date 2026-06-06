@@ -36,3 +36,8 @@ export const downloadTodayReport = async () => {
   });
 };
 
+export const getAttendanceEvidence = async () => {
+  const { data } = await api.get(API_ENDPOINTS.ATTENDANCE.EVIDENCE);
+  return Array.isArray(data) ? data : [];
+};
+

@@ -1,11 +1,10 @@
 package com.example.demo.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
-import com.example.demo.entity.Role;
 import com.example.demo.entity.Student;
 import com.example.demo.entity.User;
 import com.example.demo.repository.StudentRepository;
@@ -14,8 +13,6 @@ import com.example.demo.security.JwtUtil;
 
 @Service
 public class AuthService {
-
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepo;
     private final StudentRepository studentRepo;
@@ -33,103 +30,139 @@ public class AuthService {
     }
 
     public LoginResponse adminLogin(String username, String password) {
-        log.info("Admin/principal login requested for username={}", username);
-        validateCredentials(username, password);
 
-        try {
-            User user = userRepo.findByUsername(username)
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid username or password"));
+        System.out.println("===== ADMIN LOGIN START =====");
+        System.out.println("USERNAME: " + username);
 
-            String role = requireRole(user);
-            if (Role.STUDENT.name().equals(role)) {
-                throw new IllegalArgumentException("Use the student login endpoint for student accounts");
-            }
+        User user = userRepo.findByUsername(username)
+                .orElseThrow(() -> {
+                    System.out.println("❌ USER NOT FOUND");
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found");
+                });
 
-            if (!hasPassword(user) || !encoder.matches(password, user.getPasswordHash())) {
-                throw new IllegalArgumentException("Invalid username or password");
-            }
+        System.out.println("✅ USER FOUND: " + user.getUsername());
 
-            String accessToken = jwtUtil.generateAccessToken(user.getUsername(), role);
-            String refreshToken = jwtUtil.generateRefreshToken(user.getUsername(), role);
-
-            log.info("Admin/principal login succeeded for username={} role={}", user.getUsername(), role);
-            return new LoginResponse(accessToken, refreshToken, role, user.getUsername(), false);
-        } catch (IllegalArgumentException ex) {
-            log.warn("Admin/principal login failed for username={}: {}", username, ex.getMessage());
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Unexpected error during admin/principal login for username={}", username, ex);
-            throw new IllegalStateException("Authentication failed due to a server error", ex);
+        if (!encoder.matches(password, user.getPasswordHash())) {
+            System.out.println("❌ PASSWORD WRONG");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid password");
         }
+
+        System.out.println("✅ PASSWORD CORRECT");
+
+        String accessToken = jwtUtil.generateAccessToken(user.getUsername());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername());
+        boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
+
+        System.out.println("✅ TOKENS GENERATED");
+        System.out.println("===== ADMIN LOGIN END =====");
+
+        return new LoginResponse(accessToken, refreshToken, "ADMIN", user.getUsername(), mustChangePassword);
     }
 
     public LoginResponse studentLogin(String rollNumber, String password) {
-        log.info("Student login requested for rollNumber={}", rollNumber);
-        validateCredentials(rollNumber, password);
 
-        try {
-            Student student = studentRepo.findByRollNumber(rollNumber)
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid roll number or password"));
+        System.out.println("===== STUDENT LOGIN START =====");
+        System.out.println("ROLL NUMBER: " + rollNumber);
 
-            User user = student.getUser();
-            if (user == null) {
-                throw new IllegalStateException("Student is not linked to a user account");
-            }
+        Student student = studentRepo.findByRollNumber(rollNumber)
+                .orElseThrow(() -> {
+                    System.out.println("❌ STUDENT NOT FOUND");
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Student not found");
+                });
 
-            String role = requireRole(user);
-            if (!Role.STUDENT.name().equals(role)) {
-                throw new IllegalStateException("Student account has invalid role: " + role);
-            }
+        System.out.println("✅ STUDENT FOUND");
 
-            if (!hasPassword(user) || !encoder.matches(password, user.getPasswordHash())) {
-                throw new IllegalArgumentException("Invalid roll number or password");
-            }
+        User user = student.getUser();
 
-            String accessToken = jwtUtil.generateAccessToken(student.getRollNumber(), role);
-            String refreshToken = jwtUtil.generateRefreshToken(student.getRollNumber(), role);
-            boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
-
-            log.info("Student login succeeded for rollNumber={}", student.getRollNumber());
-            return new LoginResponse(accessToken, refreshToken, role, student.getRollNumber(), mustChangePassword);
-        } catch (IllegalArgumentException ex) {
-            log.warn("Student login failed for rollNumber={}: {}", rollNumber, ex.getMessage());
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Unexpected error during student login for rollNumber={}", rollNumber, ex);
-            throw new IllegalStateException("Authentication failed due to a server error", ex);
+        if (!encoder.matches(password, user.getPasswordHash())) {
+            System.out.println("❌ PASSWORD WRONG");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid password");
         }
+
+        System.out.println("✅ PASSWORD CORRECT");
+
+        String accessToken = jwtUtil.generateAccessToken(student.getRollNumber());
+        String refreshToken = jwtUtil.generateRefreshToken(student.getRollNumber());
+        boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
+
+        System.out.println("✅ TOKENS GENERATED");
+        System.out.println("===== STUDENT LOGIN END =====");
+
+        return new LoginResponse(accessToken, refreshToken, "STUDENT", student.getRollNumber(), mustChangePassword);
+    }
+
+    public LoginResponse unifiedLogin(String identifier, String password) {
+        System.out.println("===== UNIFIED LOGIN START =====");
+        System.out.println("IDENTIFIER: " + identifier);
+
+        // Try username-based login first (admin/teacher/principal)
+        var userOpt = userRepo.findByUsername(identifier);
+        if (userOpt.isPresent()) {
+            System.out.println("✅ USER FOUND BY USERNAME");
+            User user = userOpt.get();
+            if (!encoder.matches(password, user.getPasswordHash())) {
+                System.out.println("❌ PASSWORD WRONG");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid password");
+            }
+            System.out.println("✅ PASSWORD CORRECT");
+            String accessToken = jwtUtil.generateAccessToken(user.getUsername());
+            String refreshToken = jwtUtil.generateRefreshToken(user.getUsername());
+            String role = user.getRole() != null ? user.getRole().name() : "ADMIN";
+            boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
+            System.out.println("✅ TOKENS GENERATED - Role: " + role);
+            System.out.println("===== UNIFIED LOGIN END =====");
+            return new LoginResponse(accessToken, refreshToken, role, user.getUsername(), mustChangePassword);
+        }
+
+        // Try roll number-based login (student)
+        var studentOpt = studentRepo.findByRollNumber(identifier);
+        if (studentOpt.isPresent()) {
+            System.out.println("✅ STUDENT FOUND BY ROLL NUMBER");
+            Student student = studentOpt.get();
+            User user = student.getUser();
+            if (!encoder.matches(password, user.getPasswordHash())) {
+                System.out.println("❌ PASSWORD WRONG");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid password");
+            }
+            System.out.println("✅ PASSWORD CORRECT");
+            String accessToken = jwtUtil.generateAccessToken(student.getRollNumber());
+            String refreshToken = jwtUtil.generateRefreshToken(student.getRollNumber());
+            boolean mustChangePassword = Boolean.TRUE.equals(user.getMustChangePassword());
+            System.out.println("✅ TOKENS GENERATED - Role: STUDENT");
+            System.out.println("===== UNIFIED LOGIN END =====");
+            return new LoginResponse(accessToken, refreshToken, "STUDENT", student.getRollNumber(), mustChangePassword);
+        }
+
+        System.out.println("❌ NO USER FOUND");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid credentials");
     }
 
     public LoginResponse refreshTokens(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("Refresh token is required");
-        }
-
         String username = jwtUtil.extractUsername(refreshToken);
         if (username == null || !jwtUtil.validateRefreshToken(refreshToken, username)) {
-            throw new IllegalArgumentException("Invalid or expired refresh token");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired refresh token");
         }
 
-        String role = resolveRoleForRefresh(username, jwtUtil.extractRole(refreshToken));
-        String newAccessToken = jwtUtil.generateAccessToken(username, role);
-        return new LoginResponse(newAccessToken, refreshToken, role, username, false);
+        String newAccessToken = jwtUtil.generateAccessToken(username);
+        return new LoginResponse(newAccessToken, refreshToken, null, username, false);
     }
 
     public com.example.demo.controller.StudentAuthController.ChangePasswordResponse changeStudentPassword(
-            String rollNumber,
+            String identifier,
             String currentPassword,
             String newPassword
     ) {
-        Student student = studentRepo.findByRollNumber(rollNumber)
-                .orElseThrow(() -> new RuntimeException("Student not found"));
+        Student student = studentRepo.findByRollNumber(identifier)
+                .or(() -> studentRepo.findByUser_Username(identifier))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Student not found"));
 
         User user = student.getUser();
         if (user == null) {
-            throw new RuntimeException("User not linked to student");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not linked to student");
         }
 
         if (!encoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new RuntimeException("Current password is incorrect");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
 
         user.setPasswordHash(encoder.encode(newPassword));
@@ -139,38 +172,70 @@ public class AuthService {
         return new com.example.demo.controller.StudentAuthController.ChangePasswordResponse("Password changed successfully");
     }
 
-    private void validateCredentials(String identity, String password) {
-        if (identity == null || identity.isBlank()) {
-            throw new IllegalArgumentException("Username is required");
+    // ===================== ADMIN PASSWORD RECOVERY =====================
+
+    /**
+     * Reset admin password by admin ID (called by PRINCIPAL only).
+     * Sets mustChangePassword=true to force password change on next login.
+     *
+     * @param adminId ID of the admin user
+     * @param newPassword temporary password to set
+     * @return response with updated admin info
+     */
+    public ChangePasswordResponse resetAdminPassword(Long adminId, String newPassword) {
+        User admin = userRepo.findById(adminId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+
+        // Verify target is ADMIN role
+        com.example.demo.entity.Role role = admin.getRole();
+        if (role != com.example.demo.entity.Role.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Target user is not an admin. Current role: " + (role != null ? role.name() : "UNKNOWN"));
         }
-        if (password == null || password.isBlank()) {
-            throw new IllegalArgumentException("Password is required");
-        }
+
+        // Encode and set new password
+        admin.setPasswordHash(encoder.encode(newPassword));
+        admin.setMustChangePassword(true);
+
+        User savedAdmin = userRepo.save(admin);
+        System.out.println("✅ [ADMIN RECOVERY] Password reset for admin: " + savedAdmin.getUsername());
+
+        return new ChangePasswordResponse("Admin password reset successfully. Admin must change password on next login.");
     }
 
-    private boolean hasPassword(User user) {
-        return user.getPasswordHash() != null && !user.getPasswordHash().isBlank();
-    }
+    /**
+     * Admin changes their password after forced password change or self-initiated change.
+     * This is called after mustChangePassword=true redirects to change password page.
+     *
+     * @param adminUsername username of the admin
+     * @param currentPassword current password
+     * @param newPassword new password
+     * @return response confirming password change
+     */
+    public ChangePasswordResponse changeAdminPassword(
+            String adminUsername,
+            String currentPassword,
+            String newPassword
+    ) {
+        User admin = userRepo.findByUsername(adminUsername)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin not found"));
 
-    private String requireRole(User user) {
-        if (user == null || user.getRole() == null) {
-            throw new IllegalStateException("User role is missing");
+        // Verify current password
+        if (!encoder.matches(currentPassword, admin.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
-        return user.getRole().name();
-    }
 
-    private String resolveRoleForRefresh(String username, String roleFromToken) {
-        if (roleFromToken != null && !roleFromToken.isBlank()) {
-            return roleFromToken;
-        }
+        // Update password and clear forced change flag
+        admin.setPasswordHash(encoder.encode(newPassword));
+        admin.setMustChangePassword(false);
+        userRepo.save(admin);
 
-        return studentRepo.findByRollNumber(username)
-                .map(Student::getUser)
-                .map(this::requireRole)
-                .orElseGet(() -> userRepo.findByUsername(username)
-                        .map(this::requireRole)
-                        .orElseThrow(() -> new IllegalArgumentException("Unable to resolve user role")));
+        System.out.println("✅ [ADMIN] Password changed successfully for admin: " + adminUsername);
+
+        return new ChangePasswordResponse("Password changed successfully");
     }
 
     public record LoginResponse(String accessToken, String refreshToken, String role, String username, boolean mustChangePassword) {}
+
+    public record ChangePasswordResponse(String message) {}
 }

@@ -23,9 +23,9 @@ public class StudentAuthController {
             Authentication authentication,
             @RequestBody ChangePasswordRequest request
     ) {
-        String rollNumber = authentication.getName();
+        String identifier = authentication.getName();
         return authService.changeStudentPassword(
-                rollNumber,
+                identifier,
                 request.currentPassword(),
                 request.newPassword()
         );

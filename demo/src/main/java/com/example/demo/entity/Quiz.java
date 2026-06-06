@@ -1,13 +1,9 @@
 package com.example.demo.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -19,8 +15,21 @@ public class Quiz {
     private Long id;
 
     private String title;
+    
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
-    @OneToOne
-    @JoinColumn(name = "course_day_id")
-    private CourseDay courseDay;
+    @ManyToOne
+    @JoinColumn(name = "course_id")
+    private Course course;
+
+    @ManyToOne
+    @JoinColumn(name = "created_by_user_id")
+    private User createdBy;
+
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    private Boolean active = true;
+
+    private Boolean allowMultipleSubmissions = false;
 }

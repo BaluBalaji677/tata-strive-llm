@@ -13,27 +13,22 @@ import com.example.demo.entity.SubmissionStatus;
 import com.example.demo.entity.User;
 import com.example.demo.repository.SubmissionRepository;
 import com.example.demo.repository.StudentRepository;
-import com.example.demo.repository.UserRepository;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
 
 @Service
 public class SubmissionServiceImpl implements SubmissionService {
 
     private final SubmissionRepository submissionRepo;
-    private final UserRepository userRepo;
     private final StudentRepository studentRepo;
     private final EntityManager entityManager;
 
     public SubmissionServiceImpl(
             SubmissionRepository submissionRepo,
-            UserRepository userRepo,
             StudentRepository studentRepo,
             EntityManager entityManager
     ) {
         this.submissionRepo = submissionRepo;
-        this.userRepo = userRepo;
         this.studentRepo = studentRepo;
         this.entityManager = entityManager;
     }
@@ -49,9 +44,8 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         String username = getAuthenticatedName();
 
-        // Student identity = rollNumber (JWT subject / auth.getName()).
-        String rollNumber = username;
-        Student student = studentRepo.findByRollNumber(rollNumber)
+        Student student = studentRepo.findByUser_Username(username)
+                .or(() -> studentRepo.findByRollNumber(username))
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
         User user = student.getUser();
@@ -79,8 +73,8 @@ public class SubmissionServiceImpl implements SubmissionService {
     public List<Submission> getMySubmissions() {
         String username = getAuthenticatedName();
 
-        String rollNumber = username;
-        Student student = studentRepo.findByRollNumber(rollNumber)
+        Student student = studentRepo.findByUser_Username(username)
+                .or(() -> studentRepo.findByRollNumber(username))
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
         return submissionRepo.findByStudentIdOrderBySubmittedAtDesc(student.getId());
@@ -134,20 +128,6 @@ public class SubmissionServiceImpl implements SubmissionService {
         return submissionRepo.save(submission);
     }
 
-    private Student findStudentByUser(User user) {
-        TypedQuery<Student> q = entityManager.createQuery(
-                "select s from Student s where s.user = :user",
-                Student.class
-        );
-        q.setParameter("user", user);
-
-        List<Student> results = q.setMaxResults(1).getResultList();
-        if (results.isEmpty()) {
-            throw new RuntimeException("Student not found for this user");
-        }
-        return results.get(0);
-    }
-
     private String getAuthenticatedName() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
@@ -160,4 +140,3 @@ public class SubmissionServiceImpl implements SubmissionService {
         return s == null || s.isBlank();
     }
 }
-

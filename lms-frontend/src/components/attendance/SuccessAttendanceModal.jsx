@@ -58,6 +58,15 @@ function SuccessAttendanceModal({ isVisible, message, rollNumber, onClose }) {
             )}
           </div>
 
+          {/* Continue Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-6 w-full rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white shadow-lg transition-all duration-250 hover:bg-emerald-400 active:scale-[0.98]"
+          >
+            Continue
+          </button>
+
           {/* Loading Bar */}
           <div className="mt-6 h-1 overflow-hidden rounded-full bg-emerald-400/20">
             <div

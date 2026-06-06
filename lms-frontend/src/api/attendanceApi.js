@@ -81,3 +81,10 @@ export const recognizeMultipleFaces = async ({ descriptors }) => {
   });
 };
 
+export const uploadAttendanceEvidence = async ({ imageBase64, attendanceSessionId }) => {
+  return fetchWithAuth(`http://localhost:8080${API_ENDPOINTS.ATTENDANCE.EVIDENCE}`, {
+    method: "POST",
+    body: JSON.stringify({ imageBase64, attendanceSessionId }),
+  });
+};
+

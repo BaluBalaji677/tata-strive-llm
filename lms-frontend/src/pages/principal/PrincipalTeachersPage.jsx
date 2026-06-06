@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getAuth } from "../../utils/token";
+import { fetchJson } from "../../api/fetchJson";
 
 function PrincipalTeachersPage() {
   const [teachers, setTeachers] = useState([]);
@@ -20,14 +21,11 @@ function PrincipalTeachersPage() {
   const fetchTeachers = async () => {
     try {
       const auth = getAuth();
-      const response = await fetch("/api/principal/admins", {
+      const data = await fetchJson("/api/principal/admins", {
         headers: {
           Authorization: `Bearer ${auth?.accessToken}`,
         },
       });
-
-      if (!response.ok) throw new Error("Failed to fetch teachers");
-      const data = await response.json();
       setTeachers(data.content || []);
     } catch (err) {
       setError(err.message);
@@ -41,7 +39,7 @@ function PrincipalTeachersPage() {
     e.preventDefault();
     try {
       const auth = getAuth();
-      const response = await fetch("/api/principal/admins", {
+      const response = await fetchJson("/api/principal/admins", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${auth?.accessToken}`,
@@ -49,9 +47,7 @@ function PrincipalTeachersPage() {
         },
         body: JSON.stringify(formData),
       });
-
-      if (!response.ok) throw new Error("Failed to create teacher");
-      const newTeacher = await response.json();
+      const newTeacher = response.teacher || response;
       setTeachers([...teachers, newTeacher]);
       setFormData({ username: "", email: "", fullName: "", password: "" });
       setShowForm(false);
@@ -66,14 +62,12 @@ function PrincipalTeachersPage() {
 
     try {
       const auth = getAuth();
-      const response = await fetch(`/api/principal/admins/${id}`, {
+      await fetchJson(`/api/principal/admins/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${auth?.accessToken}`,
         },
       });
-
-      if (!response.ok) throw new Error("Failed to delete teacher");
       setTeachers(teachers.filter((t) => t.id !== id));
       alert("Teacher deleted successfully!");
     } catch (err) {

@@ -5,9 +5,10 @@ const initialFormState = {
   username: "",
   rollNumber: "",
   status: "ACTIVE",
+  courseId: "",
 };
 
-function StudentForm({ onSubmit, initialData = null }) {
+function StudentForm({ onSubmit, initialData = null, courses = [] }) {
   const [form, setForm] = useState(initialFormState);
 
   useEffect(() => {
@@ -17,6 +18,7 @@ function StudentForm({ onSubmit, initialData = null }) {
         username: initialData?.username ?? "",
         rollNumber: initialData?.rollNumber ?? "",
         status: initialData?.status ?? "ACTIVE",
+        courseId: initialData?.courseId ?? "",
       });
     } else {
       setForm(initialFormState);
@@ -36,6 +38,8 @@ function StudentForm({ onSubmit, initialData = null }) {
       username: form.username.trim(),
       rollNumber: form.rollNumber.trim(),
       status: form.status,
+      courseId: form.courseId ? Number(form.courseId) : null,
+      courseTitle: courses.find((course) => Number(course?.id) === Number(form.courseId))?.title ?? "",
     });
     if (!initialData) {
       setForm(initialFormState);
@@ -84,6 +88,24 @@ function StudentForm({ onSubmit, initialData = null }) {
           className="w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none"
           required
         />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm text-slate-200">Assigned Course</label>
+        <select
+          name="courseId"
+          value={form.courseId}
+          onChange={handleChange}
+          className="w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none"
+          required
+        >
+          <option value="">Select course</option>
+          {courses.map((course) => (
+            <option key={course.id} value={course.id}>
+              {course.title || course.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>

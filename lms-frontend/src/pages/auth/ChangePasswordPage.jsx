@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { changeStudentPassword } from "../../api/authApi";
+import { setMustChangePassword } from "../../utils/token";
 
 function ChangePasswordPage() {
   const navigate = useNavigate();
@@ -24,15 +25,18 @@ function ChangePasswordPage() {
     setLoading(true);
     try {
       await changeStudentPassword({ currentPassword, newPassword });
+      setMustChangePassword(false);
       setSuccess("Password changed successfully.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => navigate("/student/dashboard"), 1000);
     } catch (err) {
+      const backendData = err?.response?.data;
       const message =
-        err?.response?.data?.message ||
-        err?.response?.data ||
+        (backendData && typeof backendData === "string" && backendData) ||
+        backendData?.message ||
+        backendData?.error ||
         err?.message ||
         "Failed to change password";
       setError(message);

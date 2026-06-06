@@ -2,7 +2,6 @@ package com.example.demo.service;
 
 import com.example.demo.service.execution.ExecutionResult;
 import com.example.demo.service.execution.LanguageExecutor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -12,7 +11,6 @@ public class CodeExecutionService {
     private final LanguageExecutor javaExecutor;
     private final LanguageExecutor pythonExecutor;
 
-    @Autowired
     public CodeExecutionService(
             @Qualifier("javaExecutor") LanguageExecutor javaExecutor,
             @Qualifier("pythonExecutor") LanguageExecutor pythonExecutor) {

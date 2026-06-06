@@ -45,6 +45,10 @@ public class Attendance {
     @Column(name = "marked_by_admin", nullable = false)
     private boolean markedByAdmin;
 
+    @ManyToOne
+    @JoinColumn(name = "marked_by_user_id")
+    private User markedByUser;
+
     // Stored as "PRESENT"/"ABSENT" for compatibility with existing DB.
     @Column(nullable = false)
     private String status;

@@ -6,3 +6,8 @@ export const getStudentTasks = async () => {
   return data;
 };
 
+export const submitStudentTask = async (assignmentId) => {
+  const { data } = await api.post(`${API_ENDPOINTS.STUDENT.TASKS}/${assignmentId}/submit`);
+  return data;
+};
+

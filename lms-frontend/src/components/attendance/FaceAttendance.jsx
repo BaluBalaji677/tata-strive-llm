@@ -1,19 +1,37 @@
 import { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { clearAuth } from "../../utils/token";
-import { registerFace, recognizeFace, recognizeMultipleFaces } from "../../api/attendanceApi";
+import { registerFace, recognizeFace, recognizeMultipleFaces, uploadAttendanceEvidence } from "../../api/attendanceApi";
 import CameraPermissionModal from "./CameraPermissionModal";
 import SuccessAttendanceModal from "./SuccessAttendanceModal";
+import FaceOverlayCanvas from "./FaceOverlayCanvas";
+import CameraStatusBadge from "./CameraStatusBadge";
+import DetectionPanel from "./DetectionPanel";
 
 const MODEL_URL = "/models";
 const STATUS_RESET_DELAY = 3000;
 
-function FaceAttendance() {
+function FaceAttendance({ onAttendanceMarked }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const statusTimeoutRef = useRef(null);
   const localFaceCache = useRef([]); // { descriptor: Array, timestamp: number }
   const CACHE_EXPIRY_MS = 15000;
+
+  // Live detection variables
+  const detectionLoopRef = useRef(null);
+  const lastDetectionTimeRef = useRef(0);
+  const DETECTION_THROTTLE_MS = 200; // Run detection every 200ms
+
+  const faceTrackerIdRef = useRef(0);
+  const faceTrackersRef = useRef(new Map());
+  const recognitionInFlightRef = useRef(false);
+
+  const TRACKER_EXPIRY_MS = 2500;
+  const RECOGNITION_CACHE_MS = 10000;
+  const MATCH_DESCRIPTOR_THRESHOLD = 0.65;
+  const MATCH_CENTER_THRESHOLD = 120;
+  const DESCRIPTOR_CHANGE_THRESHOLD = 0.55;
 
   const [loadingModels, setLoadingModels] = useState(true);
   const [status, setStatus] = useState({ message: "Loading face recognition models...", type: "info" });
@@ -26,6 +44,11 @@ function FaceAttendance() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [recognizedStudents, setRecognizedStudents] = useState([]);
+
+  // Live detection state
+  const [trackedFaces, setTrackedFaces] = useState([]);
+  const [lastDetectionUpdateTime, setLastDetectionUpdateTime] = useState(null);
+  const [isDetectionProcessing, setIsDetectionProcessing] = useState(false);
 
   const updateStatus = (message, type = "info", autoClear = false) => {
     if (statusTimeoutRef.current) {
@@ -42,6 +65,245 @@ function FaceAttendance() {
       }, STATUS_RESET_DELAY);
     }
   };
+
+  const getCenter = (box) => ({
+    x: box.x + box.width * 0.5,
+    y: box.y + box.height * 0.5,
+  });
+
+  const getEuclideanDistance = (a, b) => {
+    if (!a || !b || a.length !== b.length) return Infinity;
+    let sum = 0;
+    for (let i = 0; i < a.length; i += 1) {
+      const delta = a[i] - b[i];
+      sum += delta * delta;
+    }
+    return Math.sqrt(sum);
+  };
+
+  const getBoxDistance = (boxA, boxB) => {
+    if (!boxA || !boxB) return Infinity;
+    const centerA = getCenter(boxA);
+    const centerB = getCenter(boxB);
+    return Math.hypot(centerA.x - centerB.x, centerA.y - centerB.y);
+  };
+
+  const createTracker = (detection) => {
+    const descriptor = detection.descriptor ? Array.from(detection.descriptor) : [];
+    const box = {
+      x: detection.detection.box.x,
+      y: detection.detection.box.y,
+      width: detection.detection.box.width,
+      height: detection.detection.box.height,
+    };
+
+    faceTrackerIdRef.current += 1;
+
+    return {
+      trackingId: faceTrackerIdRef.current,
+      box,
+      targetBox: { ...box },
+      displayBox: { ...box },
+      descriptor,
+      lastSeen: Date.now(),
+      lastDescriptorUpdate: Date.now(),
+      lastRecognizedAt: 0,
+      pendingRecognition: false,
+      needsRecognition: true,
+      recognition: {
+        trackingId: faceTrackerIdRef.current,
+        rollNumber: "UNKNOWN",
+        studentName: "Unknown Face",
+        confidence: undefined,
+        status: "Unknown",
+        lastSeen: Date.now(),
+      },
+    };
+  };
+
+  const updateTrackersFromDetections = (detections) => {
+    const now = Date.now();
+    const existingTrackers = Array.from(faceTrackersRef.current.values());
+    const candidateTrackers = existingTrackers.filter((tracker) => now - tracker.lastSeen <= TRACKER_EXPIRY_MS);
+
+    const matches = [];
+    detections.forEach((detection, detectionIndex) => {
+      const detectionDescriptor = detection.descriptor ? Array.from(detection.descriptor) : null;
+      const detectionBox = detection.detection.box;
+
+      candidateTrackers.forEach((tracker) => {
+        const centerDistance = getBoxDistance(detectionBox, tracker.box);
+        const descriptorDistance = detectionDescriptor ? getEuclideanDistance(detectionDescriptor, tracker.descriptor) : Infinity;
+        const score = descriptorDistance === Infinity ? centerDistance / 100 : descriptorDistance + centerDistance * 0.003;
+
+        matches.push({ detectionIndex, trackerId: tracker.trackingId, score, descriptorDistance, centerDistance });
+      });
+    });
+
+    matches.sort((a, b) => a.score - b.score);
+
+    const assignedTrackers = new Set();
+    const assignedDetections = new Set();
+    const detectionToTracker = new Map();
+
+    matches.forEach((match) => {
+      if (assignedTrackers.has(match.trackerId) || assignedDetections.has(match.detectionIndex)) {
+        return;
+      }
+
+      if (match.descriptorDistance < MATCH_DESCRIPTOR_THRESHOLD || match.centerDistance < MATCH_CENTER_THRESHOLD) {
+        assignedTrackers.add(match.trackerId);
+        assignedDetections.add(match.detectionIndex);
+        detectionToTracker.set(match.detectionIndex, match.trackerId);
+      }
+    });
+
+    const updatedTrackers = new Map(faceTrackersRef.current);
+
+    detections.forEach((detection, detectionIndex) => {
+      const descriptor = detection.descriptor ? Array.from(detection.descriptor) : [];
+      const box = {
+        x: detection.detection.box.x,
+        y: detection.detection.box.y,
+        width: detection.detection.box.width,
+        height: detection.detection.box.height,
+      };
+
+      if (detectionToTracker.has(detectionIndex)) {
+        const trackerId = detectionToTracker.get(detectionIndex);
+        const tracker = updatedTrackers.get(trackerId);
+        if (!tracker) return;
+
+        const descriptorDistance = getEuclideanDistance(descriptor, tracker.descriptor);
+        const descriptorChanged = descriptorDistance > DESCRIPTOR_CHANGE_THRESHOLD;
+
+        tracker.box = box;
+        tracker.targetBox = { ...box };
+        tracker.descriptor = descriptor;
+        tracker.lastSeen = now;
+        tracker.lastDescriptorUpdate = now;
+        tracker.needsRecognition = tracker.needsRecognition || descriptorChanged || now - tracker.lastRecognizedAt >= RECOGNITION_CACHE_MS;
+        tracker.pendingRecognition = false;
+        tracker.recognition.lastSeen = now;
+      } else {
+        const newTracker = createTracker(detection);
+        updatedTrackers.set(newTracker.trackingId, newTracker);
+      }
+    });
+
+    Array.from(updatedTrackers.values()).forEach((tracker) => {
+      if (now - tracker.lastSeen > TRACKER_EXPIRY_MS) {
+        updatedTrackers.delete(tracker.trackingId);
+      }
+    });
+
+    faceTrackersRef.current = updatedTrackers;
+    const activeTrackers = Array.from(updatedTrackers.values());
+    setTrackedFaces(activeTrackers);
+
+    return activeTrackers.filter((tracker) => tracker.needsRecognition && !tracker.pendingRecognition);
+  };
+
+  const processRecognitionQueue = async (trackersToRecognize) => {
+    if (recognitionInFlightRef.current || trackersToRecognize.length === 0) {
+      return;
+    }
+
+    recognitionInFlightRef.current = true;
+    trackersToRecognize.forEach((tracker) => {
+      tracker.pendingRecognition = true;
+    });
+
+    try {
+      const response = await recognizeMultipleFaces({
+        descriptors: trackersToRecognize.map((tracker) => tracker.descriptor),
+      });
+
+      if (!Array.isArray(response)) {
+        throw new Error("Invalid face recognition response");
+      }
+
+      trackersToRecognize.forEach((tracker, index) => {
+        const result = response[index] || {};
+        tracker.recognition = {
+          trackingId: tracker.trackingId,
+          rollNumber: result.rollNumber || "UNKNOWN",
+          studentName: result.name || result.studentName || "Unknown Face",
+          confidence: result.distance !== undefined ? Math.max(0, 1 - result.distance) : undefined,
+          status: result.status || "UNKNOWN",
+          lastSeen: Date.now(),
+        };
+        tracker.lastRecognizedAt = Date.now();
+        tracker.pendingRecognition = false;
+        tracker.needsRecognition = false;
+      });
+
+      setTrackedFaces(Array.from(faceTrackersRef.current.values()));
+    } catch (error) {
+      console.error("Recognition queue failed:", error);
+    } finally {
+      recognitionInFlightRef.current = false;
+      trackersToRecognize.forEach((tracker) => {
+        tracker.pendingRecognition = false;
+      });
+    }
+  };
+
+  const startLiveDetectionLoop = async () => {
+    if (!videoRef.current || !isCameraActive) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastDetectionTimeRef.current < DETECTION_THROTTLE_MS) {
+      detectionLoopRef.current = requestAnimationFrame(startLiveDetectionLoop);
+      return;
+    }
+
+    lastDetectionTimeRef.current = now;
+    setIsDetectionProcessing(true);
+
+    try {
+      const detections = await faceapi
+        .detectAllFaces(
+          videoRef.current,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+
+      const recognitionCandidates = updateTrackersFromDetections(detections || []);
+      setLastDetectionUpdateTime(new Date());
+      processRecognitionQueue(recognitionCandidates);
+    } catch (error) {
+      console.debug("Live detection error (non-critical):", error?.message || error);
+      faceTrackersRef.current = new Map();
+      setTrackedFaces([]);
+    } finally {
+      setIsDetectionProcessing(false);
+      detectionLoopRef.current = requestAnimationFrame(startLiveDetectionLoop);
+    }
+  };
+
+  const stopLiveDetectionLoop = () => {
+    if (detectionLoopRef.current) {
+      cancelAnimationFrame(detectionLoopRef.current);
+      detectionLoopRef.current = null;
+    }
+    setTrackedFaces([]);
+    setLastDetectionUpdateTime(null);
+    setIsDetectionProcessing(false);
+  };
+
+  useEffect(() => {
+    if (isCameraActive) {
+      startLiveDetectionLoop();
+    } else {
+      stopLiveDetectionLoop();
+    }
+
+    return () => stopLiveDetectionLoop();
+  }, [isCameraActive]);
 
   useEffect(() => {
     let mounted = true;
@@ -73,21 +335,26 @@ function FaceAttendance() {
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
       }
+      stopLiveDetectionLoop();
       stopCamera();
     };
   }, []);
 
   const stopCamera = () => {
+    console.log("[Attendance SUCCESS] Stopping camera...");
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      console.log("[Attendance SUCCESS] Stopped all active MediaStream tracks");
     }
 
     if (videoRef.current) {
       videoRef.current.srcObject = null;
+      console.log("[Attendance SUCCESS] Cleared video stream references");
     }
 
     setIsCameraActive(false);
+    console.log("[Attendance SUCCESS] Camera stopped");
   };
 
   const startCamera = async () => {
@@ -223,6 +490,26 @@ function FaceAttendance() {
     return detections2.map(d => Array.from(d.descriptor));
   };
 
+  const captureEvidenceImage = () => {
+    if (!videoRef.current) {
+      return null;
+    }
+
+    const video = videoRef.current;
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.drawImage(video, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", 0.8);
+  };
+
   const handleSessionExpired = () => {
     clearAuth();
     updateStatus("Session expired. Please login again.", "error");
@@ -247,11 +534,16 @@ function FaceAttendance() {
 
       updateStatus("Registering face descriptor...");
       const data = await registerFace({ rollNumber: rollNumber.trim(), descriptor });
+      console.log("[Attendance SUCCESS] Attendance success response received:", data);
       const message = `Face registered for ${data.rollNumber} ✅`;
       setLastResult({ type: "success", message });
       setSuccessMessage(message);
+      console.log("[Attendance SUCCESS] Success modal opened");
       setShowSuccessModal(true);
       updateStatus(message, "success", false);
+      if (onAttendanceMarked) {
+        onAttendanceMarked();
+      }
     } catch (registerError) {
       console.error(registerError);
       if (registerError?.status === 401 || registerError?.response?.status === 401) {
@@ -313,15 +605,43 @@ function FaceAttendance() {
       const apiTime = Math.round(performance.now() - startTime);
       console.log(`API response received in ${apiTime}ms`);
 
+      const sessionId = window.crypto?.randomUUID?.() || `attendance-session-${Date.now()}`;
+      const evidenceImage = captureEvidenceImage();
+
       if (data && data.length > 0) {
+        console.log("[Attendance SUCCESS] Attendance success response received:", data);
         setRecognizedStudents(data);
         const presentCount = data.filter(s => s.status === "Present" || s.status === "Already Marked").length;
         const message = `Successfully identified ${presentCount} student(s) ✅`;
         
         setLastResult({ type: "success", message });
         setSuccessMessage(message);
+        console.log("[Attendance SUCCESS] Success modal opened");
         setShowSuccessModal(true);
         updateStatus(message, "success", false);
+        if (onAttendanceMarked && data) {
+          const todayStr = new Date().toLocaleDateString('en-CA');
+          const newRecords = data
+            .filter(s => s.status === "Present" || s.status === "Already Marked")
+            .map((s, idx) => ({
+              id: `face-${Date.now()}-${idx}`,
+              date: todayStr,
+              present: true,
+              rollNumber: s.rollNumber,
+              studentName: s.studentName || s.name || "Unknown"
+            }));
+          onAttendanceMarked(newRecords);
+        }
+
+        if (evidenceImage) {
+          uploadAttendanceEvidence({ imageBase64: evidenceImage, attendanceSessionId: sessionId })
+            .then(() => {
+              console.debug("Attendance evidence uploaded successfully");
+            })
+            .catch((uploadError) => {
+              console.warn("Attendance evidence upload failed:", uploadError);
+            });
+        }
       } else {
         const message = "No matching faces found in the database ❌";
         setLastResult({ type: "error", message: "None of the detected faces match our records." });
@@ -349,6 +669,20 @@ function FaceAttendance() {
     info: "border-white/15 bg-white/5 text-slate-100",
   };
 
+  const handleCloseSuccessModal = () => {
+    console.log("[Attendance SUCCESS] Success modal closed");
+
+    stopCamera();
+
+    setShowSuccessModal(false);
+    setIsRecognizing(false);
+    setIsRegistering(false);
+    setRecognizedStudents([]);
+    setStatus({ message: "Ready to start attendance", type: "success" });
+
+    console.log("[Attendance SUCCESS] Dashboard state restored");
+  };
+
   return (
     <div className="mx-auto max-w-6xl">
       {/* Camera Permission Modal */}
@@ -363,7 +697,7 @@ function FaceAttendance() {
         isVisible={showSuccessModal}
         message={successMessage}
         rollNumber={rollNumber}
-        onClose={() => setShowSuccessModal(false)}
+        onClose={handleCloseSuccessModal}
       />
 
       <div className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/70 shadow-[0_30px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl">
@@ -410,7 +744,19 @@ function FaceAttendance() {
                 autoPlay
                 muted
                 playsInline
-                className="relative z-10 h-80 w-full rounded-[20px] bg-slate-950 object-cover"
+                className="relative z-0 h-80 w-full rounded-[20px] bg-slate-950 object-cover"
+              />
+
+              <FaceOverlayCanvas
+                videoRef={videoRef}
+                trackedFaces={trackedFaces}
+                isCameraActive={isCameraActive}
+              />
+
+              <CameraStatusBadge
+                isCameraActive={isCameraActive}
+                isLoadingModels={loadingModels}
+                faceCount={trackedFaces.length}
               />
 
               {!isCameraActive ? (
@@ -478,6 +824,12 @@ function FaceAttendance() {
               />
               <p className="mt-2 text-xs text-slate-400">Roll number is only needed when registering a new face. Scanning for attendance does not require a roll number.</p>
             </div>
+
+            <DetectionPanel
+              trackedFaces={trackedFaces}
+              isProcessing={isDetectionProcessing || isRecognizing}
+              lastUpdateTime={lastDetectionUpdateTime}
+            />
 
             {recognizedStudents.length > 0 && (
               <div className="rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-md">

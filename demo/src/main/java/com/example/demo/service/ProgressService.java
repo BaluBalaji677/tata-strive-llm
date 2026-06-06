@@ -4,6 +4,8 @@ import com.example.demo.entity.Course;
 import com.example.demo.entity.Lesson;
 import com.example.demo.entity.Progress;
 import com.example.demo.entity.Student;
+import com.example.demo.entity.User;
+import com.example.demo.entity.Role;
 import com.example.demo.repository.CourseRepository;
 import com.example.demo.repository.LessonRepository;
 import com.example.demo.repository.ProgressRepository;
@@ -28,14 +30,15 @@ public class ProgressService {
     private final LessonRepository lessonRepository;
     private final CourseRepository courseRepository;
     private final ModuleTaskService moduleTaskService;
+    private final TeacherAccessService teacherAccessService;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public ProgressService(ProgressRepository progressRepository, StudentRepository studentRepository, LessonRepository lessonRepository, CourseRepository courseRepository, @org.springframework.context.annotation.Lazy ModuleTaskService moduleTaskService) {
+    public ProgressService(ProgressRepository progressRepository, StudentRepository studentRepository, LessonRepository lessonRepository, CourseRepository courseRepository, @org.springframework.context.annotation.Lazy ModuleTaskService moduleTaskService, TeacherAccessService teacherAccessService) {
         this.progressRepository = progressRepository;
         this.studentRepository = studentRepository;
         this.lessonRepository = lessonRepository;
         this.courseRepository = courseRepository;
         this.moduleTaskService = moduleTaskService;
+        this.teacherAccessService = teacherAccessService;
     }
 
     @Transactional
@@ -91,8 +94,22 @@ public class ProgressService {
     }
 
     public List<StudentCourseProgress> getStudentCourseProgress() {
-        List<Student> students = studentRepository.findAllWithUser();
-        List<Course> courses = courseRepository.findAll();
+        // Get current user and filter by their courses
+        User currentUser = teacherAccessService.requireCurrentUser();
+        List<Student> students;
+        List<Course> courses;
+        
+        // Principal sees all students and courses, admin sees only their own
+        if (currentUser.getRole() == Role.PRINCIPAL) {
+            students = studentRepository.findAllWithUser();
+            courses = courseRepository.findAll();
+        } else if (currentUser.getRole() == Role.ADMIN) {
+            // Admin sees only their own students and courses
+            students = studentRepository.findByCourse_Teacher_Username(currentUser.getUsername());
+            courses = courseRepository.findByTeacher_Username(currentUser.getUsername());
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
 
         return students.stream()
                 .map(student -> {

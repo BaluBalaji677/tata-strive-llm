@@ -1,11 +1,12 @@
 import api from "../api/axios";
 import { API_ENDPOINTS } from "../api/endpoints";
+import { getUsername } from "../utils/token";
 
-const LOCAL_COURSES_KEY = "lms_admin_courses_ui";
+const getLocalCoursesKey = () => `lms_admin_courses_ui_${getUsername() || "anonymous"}`;
 
 const readLocalCourses = () => {
   try {
-    const raw = localStorage.getItem(LOCAL_COURSES_KEY);
+    const raw = localStorage.getItem(getLocalCoursesKey());
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -14,7 +15,7 @@ const readLocalCourses = () => {
 };
 
 const writeLocalCourses = (courses) => {
-  localStorage.setItem(LOCAL_COURSES_KEY, JSON.stringify(courses));
+  localStorage.setItem(getLocalCoursesKey(), JSON.stringify(courses));
 };
 
 const normalizeCourse = (course) => ({
@@ -28,11 +29,12 @@ const normalizeCourse = (course) => ({
 export const getCourses = async () => {
   try {
     const response = await api.get(API_ENDPOINTS.COURSE.COURSES);
-    // Don't arbitrarily strip fields like description via normalizeCourse
     return response.data;
   } catch (error) {
     console.error("API ERROR:", error.response || error);
-    // Fallback to local courses if API absolutely fails
+    if (error?.response) {
+      throw error;
+    }
     return readLocalCourses();
   }
 };
@@ -49,8 +51,10 @@ export const addCourse = async (payload) => {
   try {
     const { data } = await api.post(API_ENDPOINTS.COURSE.ADMIN_COURSE, requestBody);
     return data;
-  } catch {
-    // Frontend fallback storage only if API is unavailable
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     const list = readLocalCourses();
     const course = {
       id: Date.now(),
@@ -74,8 +78,10 @@ export const updateCourse = async (id, payload) => {
   try {
     const { data } = await api.put(`${API_ENDPOINTS.COURSE.COURSES}/${id}`, requestBody);
     return normalizeCourse(data ?? { id, ...requestBody });
-  } catch {
-    // Frontend fallback storage only if API is unavailable
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     const list = readLocalCourses();
     const next = list.map((c) =>
       c.id === id
@@ -92,8 +98,10 @@ export const deleteCourse = async (id) => {
   try {
     await api.delete(`${API_ENDPOINTS.COURSE.COURSES}/${id}`);
     return { success: true };
-  } catch {
-    // Frontend fallback storage only if API is unavailable
+  } catch (error) {
+    if (error?.response) {
+      throw error;
+    }
     const list = readLocalCourses();
     const next = list.filter((c) => c.id !== id);
     writeLocalCourses(next);

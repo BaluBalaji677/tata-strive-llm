@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import AttendanceTable from "../../components/attendance/AttendanceTable";
+import AttendanceEvidencePanel from "../../components/attendance/AttendanceEvidencePanel";
 import Card from "../../components/common/Card";
 import FaceAttendance from "../../components/attendance/FaceAttendance";
 import { markStudentAttendance, getAllAttendanceHistory, downloadTodayReport } from "../../services/attendanceService";
@@ -26,6 +27,10 @@ function AdminAttendancePage() {
       const data = await markStudentAttendance({ rollNumber, present });
       console.log("Attendance marked successfully:", data);
       setResult(data);
+      setHistory((prev) => {
+        const filtered = prev.filter(item => !(item.rollNumber === data.rollNumber && item.date === data.date));
+        return [...filtered, data];
+      });
       // Fetch history again to ensure data stays persistent
       fetchHistory(searchRoll);
       setRollNumber("");
@@ -44,6 +49,23 @@ function AdminAttendancePage() {
       setHistory(data.reverse());
     } catch (err) {
       console.error("Error fetching history:", err);
+    }
+  };
+
+  const handleAttendanceMarked = (newRecords) => {
+    if (newRecords && newRecords.length > 0) {
+      setHistory((prev) => {
+        let updated = [...prev];
+        newRecords.forEach((rec) => {
+          updated = updated.filter(
+            (item) => !(item.rollNumber === rec.rollNumber && item.date === rec.date)
+          );
+          updated.push(rec);
+        });
+        return updated;
+      });
+    } else {
+      fetchHistory(searchRoll);
     }
   };
 
@@ -112,7 +134,7 @@ function AdminAttendancePage() {
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setMode("manual")}
@@ -128,6 +150,13 @@ function AdminAttendancePage() {
             >
               Face Mode
             </button>
+            <button
+              type="button"
+              onClick={() => setMode("evidence")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === "evidence" ? "bg-emerald-600 text-white" : "bg-white/5 text-slate-300 hover:bg-white/10"}`}
+            >
+              Evidence
+            </button>
           </div>
           {!FACE_ATTENDANCE_ENABLED ? (
             <p className="text-sm text-slate-400">Face attendance is disabled by feature flag.</p>
@@ -136,7 +165,9 @@ function AdminAttendancePage() {
       </Card>
 
       {mode === "face" ? (
-        <FaceAttendance />
+        <FaceAttendance onAttendanceMarked={handleAttendanceMarked} />
+      ) : mode === "evidence" ? (
+        <AttendanceEvidencePanel />
       ) : (
         <Card>
           <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-3">

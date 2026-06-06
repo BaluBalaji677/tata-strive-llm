@@ -1,0 +1,47 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------------< com.example:demo >--------------------------
+[INFO] Building  0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ demo ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ demo ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ demo ---
+[INFO] skip non existing resourceDirectory D:\tata strive\demo\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ demo ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 1 source file with javac [debug parameters release 17] to target\test-classes
+[INFO] 
+[INFO] --- surefire:3.5.5:test (default-test) @ demo ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.example.demo.DemoApplicationTests
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+--- DB PASSWORD MATCH AUDIT START ---
+NO MATCH FOUND: username=rn015165455102@student.local, hash=$2a$10$YYYkFx5ZwX5TMQMk3v2z..XYRdZYa9ri3LotPGWu/33VPhxUiTMmK
+NO MATCH FOUND: username=balu50000@gmail.com, hash=$2a$10$MvCbrmavLomWLjDsGtYVyuYz7ZClzmyPQ6g3yNnDMF3Qq1xZeM0ha
+NO MATCH FOUND: username=balu5074854864@gmail.com, hash=$2a$10$6Rbyh0VyLZZqO53nHOfZsODc0IBPAYNZrxse14zAgD5yAUI/EI1BW
+NO MATCH FOUND: username=balu5076448456454@gmail.com, hash=$2a$10$Hj.YyqssMBJYPnz/3tmtuOYNCsMtA9dUDW8Pa5EWxY2c9Bvbt4nVC
+--- DB PASSWORD MATCH AUDIT END ---
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.621 s -- in com.example.demo.DemoApplicationTests
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  15.391 s
+[INFO] Finished at: 2026-06-03T11:16:17+05:30
+[INFO] ------------------------------------------------------------------------

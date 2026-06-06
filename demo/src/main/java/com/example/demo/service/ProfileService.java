@@ -90,15 +90,15 @@ public class ProfileService {
                     .getAuthentication()
                     .getPrincipal();
 
-            String rollNo;
+            String identifier;
 
             if (principal instanceof UserDetails) {
-                rollNo = ((UserDetails) principal).getUsername();
+                identifier = ((UserDetails) principal).getUsername();
             } else {
-                rollNo = principal.toString();
+                identifier = principal.toString();
             }
 
-            studentRepository.findByRollNumber(rollNo)
+            findStudentByIdentifier(identifier)
                     .ifPresent(student -> {
 
                         dto.setId(student.getId());
@@ -132,15 +132,15 @@ public class ProfileService {
                     .getAuthentication()
                     .getPrincipal();
 
-            String rollNo;
+            String identifier;
 
             if (principal instanceof UserDetails) {
-                rollNo = ((UserDetails) principal).getUsername();
+                identifier = ((UserDetails) principal).getUsername();
             } else {
-                rollNo = principal.toString();
+                identifier = principal.toString();
             }
 
-            studentRepository.findByRollNumber(rollNo)
+            findStudentByIdentifier(identifier)
                     .ifPresent(student -> {
 
                         student.setFullName(profileDTO.getFullName());
@@ -210,5 +210,10 @@ public class ProfileService {
                     e
             );
         }
+    }
+
+    private java.util.Optional<Student> findStudentByIdentifier(String identifier) {
+        return studentRepository.findByUser_Username(identifier)
+                .or(() -> studentRepository.findByRollNumber(identifier));
     }
 }
