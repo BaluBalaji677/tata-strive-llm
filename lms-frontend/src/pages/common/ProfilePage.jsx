@@ -72,14 +72,14 @@ const ProfilePage = () => {
   }
 
   const avatarUrl = profile.profileImageUrl
-    ? `http://localhost:8080${profile.profileImageUrl}`
+    ? `https://tata-strive-llm-1.onrender.com${profile.profileImageUrl}`
     : "https://ui-avatars.com/api/?name=" + (profile.fullName || "User") + "&background=0D8ABC&color=fff";
 
   return (
     <div className="mx-auto max-w-2xl p-6">
       <div className="glass rounded-2xl p-8 text-white relative">
         <h2 className="mb-6 text-3xl font-bold">User Profile</h2>
-        
+
         <div className="flex flex-col items-center gap-6 sm:flex-row">
           <div className="relative">
             <img

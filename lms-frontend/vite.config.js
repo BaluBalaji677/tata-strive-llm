@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const target = "http://localhost:8080";
+const target = "https://tata-strive-llm-1.onrender.com";
 const bypass = (req) => {
   if (req.headers.accept?.includes("text/html") || req.headers.accept?.includes("html")) {
     return "/index.html";
@@ -29,8 +29,8 @@ export default defineConfig({
       "/student/quizzes": { target, bypass },
       "/student/submissions": { target, bypass },
       "/student/change-password": { target, bypass },
-        "/principal": { target, bypass },
-        "/students": { target, bypass },
+      "/principal": { target, bypass },
+      "/students": { target, bypass },
       "/courses": { target, bypass },
       "/course": { target, bypass },
       "/lesson": { target, bypass },

@@ -7,7 +7,7 @@ function ProfileCard({ profile, stats = [] }) {
         <img
           src={
             profile.profileImageUrl
-              ? `http://localhost:8080${profile.profileImageUrl}`
+              ? `https://tata-strive-llm-1.onrender.com${profile.profileImageUrl}`
               : `https://ui-avatars.com/api/?name=${profile.fullName || "User"}&background=0D8ABC&color=fff`
           }
           alt="Profile"

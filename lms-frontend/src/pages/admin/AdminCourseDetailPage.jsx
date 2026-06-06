@@ -23,9 +23,9 @@ const normalizeCourseData = (data) => ({
   ...data,
   modules: Array.isArray(data?.modules)
     ? data.modules.map((module) => ({
-        ...module,
-        lessons: Array.isArray(module?.lessons) ? module.lessons : [],
-      }))
+      ...module,
+      lessons: Array.isArray(module?.lessons) ? module.lessons : [],
+    }))
     : [],
 });
 
@@ -397,11 +397,10 @@ function AdminCourseDetailPage() {
     <div className="relative flex h-[calc(100vh-6rem)] w-full gap-6 overflow-hidden pl-4 pr-6">
       {toast && (
         <div
-          className={`absolute right-8 top-4 z-50 rounded-2xl border px-4 py-3 text-sm shadow-xl backdrop-blur-xl ${
-            toast.type === "success"
+          className={`absolute right-8 top-4 z-50 rounded-2xl border px-4 py-3 text-sm shadow-xl backdrop-blur-xl ${toast.type === "success"
               ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-200"
               : "border-rose-500/30 bg-rose-500/15 text-rose-200"
-          }`}
+            }`}
         >
           {toast.message}
         </div>
@@ -567,7 +566,7 @@ function AdminCourseDetailPage() {
               </div>
               {certificate?.certificateUrl && (
                 <a
-                  href={`http://localhost:8080${certificate.certificateUrl}`}
+                  href={`https://tata-strive-llm-1.onrender.com${certificate.certificateUrl}`}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs text-white transition hover:bg-white/15"

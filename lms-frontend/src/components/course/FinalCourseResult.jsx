@@ -69,11 +69,10 @@ const FinalCourseResult = ({ courseId }) => {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center p-8">
-      <div className={`relative w-full overflow-hidden rounded-2xl border p-8 text-center ${
-        isPass
-          ? "border-emerald-500/30 bg-emerald-900/20 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
-          : "border-rose-500/30 bg-rose-900/20 shadow-[0_0_50px_-12px_rgba(244,63,94,0.3)]"
-      }`}>
+      <div className={`relative w-full overflow-hidden rounded-2xl border p-8 text-center ${isPass
+        ? "border-emerald-500/30 bg-emerald-900/20 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
+        : "border-rose-500/30 bg-rose-900/20 shadow-[0_0_50px_-12px_rgba(244,63,94,0.3)]"
+        }`}>
         <div className={`absolute left-1/2 top-0 -z-10 h-32 w-64 -translate-x-1/2 blur-[80px] ${isPass ? "bg-emerald-500/20" : "bg-rose-500/20"}`}></div>
 
         <div className="mb-6">
@@ -149,20 +148,19 @@ const FinalCourseResult = ({ courseId }) => {
                   {certificate?.certificateUrl
                     ? "Your certificate is ready to download."
                     : certificateLoading
-                    ? "Checking certificate availability..."
-                    : "The admin has not uploaded a certificate yet."}
+                      ? "Checking certificate availability..."
+                      : "The admin has not uploaded a certificate yet."}
                 </p>
                 {certificateError && <p className="mt-2 text-sm text-rose-300">{certificateError}</p>}
               </div>
               <a
-                href={certificate?.certificateUrl ? `http://localhost:8080${certificate.certificateUrl}` : undefined}
+                href={certificate?.certificateUrl ? `https://tata-strive-llm-1.onrender.com${certificate.certificateUrl}` : undefined}
                 target="_blank"
                 rel="noreferrer"
-                className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition ${
-                  certificate?.certificateUrl
-                    ? "bg-amber-400 text-slate-950 hover:bg-amber-300"
-                    : "cursor-not-allowed bg-white/10 text-slate-500"
-                }`}
+                className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition ${certificate?.certificateUrl
+                  ? "bg-amber-400 text-slate-950 hover:bg-amber-300"
+                  : "cursor-not-allowed bg-white/10 text-slate-500"
+                  }`}
                 onClick={(event) => {
                   if (!certificate?.certificateUrl) {
                     event.preventDefault();

@@ -61,28 +61,28 @@ export const getStudentAttendanceSummary = async () => {
 };
 
 export const registerFace = async ({ rollNumber, descriptor }) => {
-  return fetchWithAuth(`http://localhost:8080${API_ENDPOINTS.ATTENDANCE.FACE_REGISTER}`, {
+  return fetchWithAuth(`https://tata-strive-llm-1.onrender.com${API_ENDPOINTS.ATTENDANCE.FACE_REGISTER}`, {
     method: "POST",
     body: JSON.stringify({ rollNumber, descriptor }),
   });
 };
 
 export const recognizeFace = async ({ rollNumber, descriptor }) => {
-  return fetchWithAuth(`http://localhost:8080${API_ENDPOINTS.ATTENDANCE.FACE_RECOGNIZE}`, {
+  return fetchWithAuth(`https://tata-strive-llm-1.onrender.com${API_ENDPOINTS.ATTENDANCE.FACE_RECOGNIZE}`, {
     method: "POST",
     body: JSON.stringify({ rollNumber, descriptor }),
   });
 };
 
 export const recognizeMultipleFaces = async ({ descriptors }) => {
-  return fetchWithAuth(`http://localhost:8080${API_ENDPOINTS.ATTENDANCE.FACE_RECOGNIZE_MULTIPLE}`, {
+  return fetchWithAuth(`https://tata-strive-llm-1.onrender.com${API_ENDPOINTS.ATTENDANCE.FACE_RECOGNIZE_MULTIPLE}`, {
     method: "POST",
     body: JSON.stringify({ descriptors }),
   });
 };
 
 export const uploadAttendanceEvidence = async ({ imageBase64, attendanceSessionId }) => {
-  return fetchWithAuth(`http://localhost:8080${API_ENDPOINTS.ATTENDANCE.EVIDENCE}`, {
+  return fetchWithAuth(`https://tata-strive-llm-1.onrender.com${API_ENDPOINTS.ATTENDANCE.EVIDENCE}`, {
     method: "POST",
     body: JSON.stringify({ imageBase64, attendanceSessionId }),
   });
