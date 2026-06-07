@@ -1,24 +1,24 @@
 package com.example.demo.config;
 
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Pageable;
-
-import com.example.demo.entity.Course;
-import com.example.demo.entity.Module;
-import com.example.demo.entity.Lesson;
-import com.example.demo.entity.Role;
-import com.example.demo.entity.User;
-import com.example.demo.repository.CourseRepository;
-import com.example.demo.repository.ModuleRepository;
-import com.example.demo.repository.LessonRepository;
-import com.example.demo.repository.UserRepository;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.demo.entity.Course;
+import com.example.demo.entity.Lesson;
+import com.example.demo.entity.Module;
+import com.example.demo.entity.Role;
+import com.example.demo.entity.User;
+import com.example.demo.repository.CourseRepository;
+import com.example.demo.repository.LessonRepository;
+import com.example.demo.repository.ModuleRepository;
+import com.example.demo.repository.UserRepository;
 
 @Component
 public class CourseDataLoader implements CommandLineRunner {
@@ -38,7 +38,7 @@ public class CourseDataLoader implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        if (courseRepository.count() == 0) {
+       /* if (courseRepository.count() == 0) {
             System.out.println("Seeding default Java Full Stack course...");
             
             Course course = new Course();
@@ -81,7 +81,7 @@ public class CourseDataLoader implements CommandLineRunner {
             System.out.println("Default course seeded successfully.");
         } else {
             System.out.println("Course data exists. Skipping default seed.");
-        }
+        }*/
 
         normalizeLegacyTeacherAssignments();
         backfillLegacyAttendanceMarkedBy();
